@@ -1,0 +1,17 @@
+# deck export output
+docs/dist/
+docs/node_modules/
+
+# scratch space / drafts in progress
+tmp/
+
+# editor config stays local
+.vscode/
+
+# pipeline services (will adjust per service)
+data/
+**/__pycache__/
+**/.venv/
+
+# local env overrides
+.env
