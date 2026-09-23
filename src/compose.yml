@@ -60,23 +60,21 @@ services:
     command: ["worker", "start", "--pool", "labels-local"]
 
   # -------------------------------------------------------- dbt (BigQuery)
-  # One-shot: create the BigQuery dataset if missing. gcloud CLI for the
-  # sample; real life = Terraform (IaC) via CI/CD (dataset resource, project
-  # factory, least-privilege SAs, remote state). Discussion: docs/draft.md.
+  # One-shot: create the BigQuery dataset if missing (idempotent script:
+  # src/dbt/init_dataset.sh). gcloud CLI for the sample; real life =
+  # Terraform (IaC) via CI/CD (dataset resource, project factory,
+  # least-privilege SAs, remote state). Discussion: docs/draft.md.
   bigquery-init:
     image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     profiles: ["dbt"]
     volumes:
       - *gcloud-creds
+      - ./dbt/init_dataset.sh:/usr/local/bin/init_dataset.sh:ro
     environment:
-      DBT_PROJECT: ${DBT_PROJECT:?set DBT_PROJECT in .env - GCP project for the dataset}
+      DBT_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
       DBT_DATASET: ${DBT_DATASET:-nansen_labels_dev}
       <<: *gcloud-env
-    entrypoint: ["/bin/bash", "-euo", "pipefail", "-c"]
-    command:
-      - >-
-        bq --location=US mk --dataset "$DBT_PROJECT:$DBT_DATASET"
-        || echo "dataset $DBT_DATASET already exists (or auth failed) - skipping"
+    entrypoint: ["bash", "/usr/local/bin/init_dataset.sh"]
 
   # dbt CLI on the public Ethereum dataset (ENTRYPOINT is `dbt`).
   # Auth: mount gcloud creds read-only, or use a keyfile via env.
