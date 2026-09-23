@@ -1,0 +1,67 @@
+# ===========================================================================
+# Build & deploy the Slidev deck to GitHub Pages
+#
+#   https://<user>.github.io/cor-sample-nansen
+#
+# The deck is built inside our own Docker image (docker/slidev.Dockerfile)
+# via the same compose service used locally - no Node/npm on the runner host.
+#
+# One-time setup (repo Settings -> Pages): Source = "GitHub Actions"
+# ===========================================================================
+name: Deploy slides to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/slides.md
+      - docker/**
+      - docker-compose.yml
+      - .github/workflows/slides-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; a new push cancels the previous deploy
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build deck (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Same command as local: builds the slidev image, then the SPA.
+      # --download also produces slides.pdf inside the site, served with
+      # a "Download PDF" button in the deployed deck.
+      - name: Build SPA
+        run: docker compose --profile slides run --rm slides-build
+
+      # GitHub Pages must not process the output with Jekyll
+      - name: Add .nojekyll
+        run: touch docs/dist/site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/dist/site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
