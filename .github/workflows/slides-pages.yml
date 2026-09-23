@@ -15,6 +15,7 @@ on:
     branches: [main]
     paths:
       - docs/slides.md
+      - docs/draft.md
       - docker/**
       - docker-compose.yml
       - .github/workflows/slides-pages.yml
@@ -42,15 +43,19 @@ jobs:
       # Same command as local: builds the slidev image, then the SPA.
       # --download also produces slides.pdf inside the site, served with
       # a "Download PDF" button in the deployed deck.
-      - name: Build SPA
+      - name: Build deck SPA
         run: docker compose --profile slides run --rm slides-build
+
+      # Design doc (docs/draft.md) as its own SPA under site/draft/
+      - name: Build draft SPA
+        run: docker compose --profile slides run --rm draft-build
 
       # GitHub Pages must not process the output with Jekyll.
       # NB: dist/ is created root-owned by the container, so the touch has to
       # happen inside the container as well - a host-side touch gets
       # "permission denied" on the CI runner.
       - name: Add .nojekyll
-        run: docker compose --profile slides run --rm slides-build touch /slides/dist/site/.nojekyll
+        run: docker compose --profile slides run --rm slides-build touch /slides/dist/site/.nojekyll /slides/dist/site/draft/.nojekyll
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

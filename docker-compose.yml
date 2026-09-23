@@ -22,6 +22,8 @@ x-slidev: &slidev
   build:
     context: .
     dockerfile: docker/slidev.Dockerfile
+  # one shared image for all deck services (avoid per-service rebuilds)
+  image: nansen-slidev
   working_dir: /slides
   volumes:
     - ./docs:/slides
@@ -66,3 +68,30 @@ services:
       - --download
       - --router-mode=hash
       - --out=/slides/dist/site
+
+  # --------------------------------------------------- Draft (design doc)
+  # docs/draft.md rendered as a continuous page - live preview while writing
+  draft:
+    <<: *slidev
+    profiles: ["slides"]
+    ports:
+      - "3031:3030"
+    command:
+      - slidev
+      - dev
+      - /slides/draft.md
+      - --open=false
+      - --remote
+
+  # Draft SPA build -> docs/dist/site/draft/ (deployed at /draft/)
+  draft-build:
+    <<: *slidev
+    profiles: ["slides"]
+    command:
+      - slidev
+      - build
+      - /slides/draft.md
+      - --base=/cor-sample-nansen/draft/
+      - --download
+      - --router-mode=hash
+      - --out=/slides/dist/site/draft
