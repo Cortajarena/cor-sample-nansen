@@ -1,0 +1,15 @@
+# dbt project definition
+name: nansen_labels
+version: 0.1.0
+config-version: 2
+
+# -> profiles.yml (project-local, dbt finds it before ~/.dbt/)
+profile: nansen_labels
+
+model-paths: ["models"]
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  nansen_labels:
+    # staging over the public dataset first, marts later
+    +materialized: view

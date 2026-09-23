@@ -1,0 +1,2 @@
+# Nothing to exclude from parsing yet - target/ and dbt_packages/ are already
+# handled by dbt itself. Kept as a placeholder.

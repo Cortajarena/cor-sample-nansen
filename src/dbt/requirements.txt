@@ -1,0 +1,9 @@
+# Pinned toolchain for the dbt subproject (BigQuery adapter).
+# Both pins on the same 1.12 line so core and adapter match exactly -
+# pinning the adapter alone lets pip drift core forward (seen: 1.12.5 core
+# with a 1.9.x adapter -> "plugin out of date" warning).
+dbt-core==1.12.5
+dbt-bigquery==1.12.1
+
+# Note: dbt *packages* (dbt-utils, dbt_expectations, ...) do NOT go here -
+# they belong in packages.yml and are installed by `dbt deps`.

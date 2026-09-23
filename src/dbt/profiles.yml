@@ -1,0 +1,18 @@
+# dbt connection profile - project-local (dbt looks here before ~/.dbt/).
+# Values via env vars with safe defaults so the skeleton parses anywhere.
+
+nansen_labels:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      # local dev: `gcloud auth application-default login`
+      # CI/prod: switch to service-account and mount the keyfile
+      method: oauth
+      project: "{{ env_var('DBT_PROJECT', 'your-gcp-project-id') }}"
+      dataset: "{{ env_var('DBT_DATASET', 'nansen_labels_dev') }}"
+      threads: 8
+      timeout_seconds: 300
+      # the public dataset lives in the US multi-region
+      location: US
+      priority: interactive
