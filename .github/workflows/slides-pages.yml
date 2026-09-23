@@ -44,7 +44,21 @@ jobs:
       # --download also produces slides.pdf inside the site, served with
       # a "Download PDF" button in the deployed deck.
       - name: Build deck SPA
-        run: docker compose --profile slides run --rm slides-build
+        run: |
+          set -o pipefail
+          docker compose --profile slides run --rm slides-build 2>&1 | tee build.log
+          echo "exit=$?" >> build.log
+        continue-on-error: true
+
+      - name: Dump build log to summary (debug)
+        if: always()
+        run: |
+          {
+            echo "## Build deck SPA output"
+            echo '```'
+            tail -50 build.log 2>/dev/null || echo "(no log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # Design doc (docs/draft.md): a DOCUMENT, not slides - rendered with
       # pandoc into site/draft/ (HTML with TOC) + a PDF next to it.
