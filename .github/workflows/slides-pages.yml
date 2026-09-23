@@ -45,9 +45,12 @@ jobs:
       - name: Build SPA
         run: docker compose --profile slides run --rm slides-build
 
-      # GitHub Pages must not process the output with Jekyll
+      # GitHub Pages must not process the output with Jekyll.
+      # NB: dist/ is created root-owned by the container, so the touch has to
+      # happen inside the container as well - a host-side touch gets
+      # "permission denied" on the CI runner.
       - name: Add .nojekyll
-        run: touch docs/dist/site/.nojekyll
+        run: docker compose --profile slides run --rm slides-build touch /slides/dist/site/.nojekyll
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
