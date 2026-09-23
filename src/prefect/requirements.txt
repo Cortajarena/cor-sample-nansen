@@ -1,0 +1,4 @@
+# Pinned toolchain for the prefect subproject.
+# Orchestrator only for now - integration packages (prefect-dbt, prefect-gcp,
+# prefect-docker, ...) get added when the corresponding piece is implemented.
+prefect==3.8.6

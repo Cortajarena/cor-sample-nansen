@@ -1,0 +1,34 @@
+
+# Prefect project definition (created by `prefect init`, hand-tuned).
+# Docs: https://docs.prefect.io/v3/concepts/projects
+
+name: nansen-labels
+prefect-version: 3.8.6
+
+# Build/push/push steps are deployment-time concerns (containerized flow
+# deployments) - placeholders until we wire real deployments.
+build: null
+push: null
+
+pull:
+  # Flows run from the project directory inside the image
+  - prefect.deployments.steps.set_working_directory:
+      directory: /opt/prefect
+
+# Deployments: the worker polls the `labels-local` work pool (created by the
+# compose `init` service) and executes flows from the image's local code.
+deployments:
+  - name: daily-label-pipeline
+    version: 0.1.0
+    description: "Mockup of the daily label pipeline - all stages in mock mode."
+    entrypoint: flows/label_pipeline.py
+    work_pool:
+      name: labels-local
+      work_queue_name: default
+      job_variables: {}
+    schedules:
+      # flat schedule config (no name/slug needed until we manage many)
+      - interval: 86400 # seconds - daily
+        anchor_date: "2026-09-24T00:00:00+00:00"
+        timezone: UTC
+        active: false # flip true when ready to schedule for real
