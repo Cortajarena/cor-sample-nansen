@@ -1,5 +1,5 @@
 {
   "name": "nansen-decks",
   "private": true,
-  "description": "Marker package so Slidev resolves globally installed themes (see docker/slidev.Dockerfile) for both slides.md and draft.md - no dependencies, nothing to install."
+  "description": "Marker package so Slidev resolves globally installed themes - no dependencies, nothing to install."
 }

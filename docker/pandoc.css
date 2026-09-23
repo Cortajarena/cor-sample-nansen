@@ -1,0 +1,71 @@
+/* GitHub-like document styling for the pandoc-rendered draft. */
+
+:root {
+  --text: #1f2328;
+  --muted: #59636e;
+  --border: #d1d9e0;
+  --bg: #ffffff;
+  --code-bg: #f6f8fa;
+  --link: #0969da;
+}
+
+body {
+  max-width: 50rem;
+  margin: 2rem auto;
+  padding: 0 1.5rem 4rem;
+  color: var(--text);
+  background: var(--bg);
+  font-family: -apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  line-height: 1.65;
+}
+
+/* TOC box */
+nav#TOC {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0 2.5rem;
+}
+
+nav#TOC ul { list-style: none; padding-left: 0.5rem; margin: 0; }
+nav#TOC ul ul { padding-left: 1.2rem; }
+nav#TOC a { color: var(--link); text-decoration: none; }
+nav#TOC a:hover { text-decoration: underline; }
+
+/* headings */
+header#title-block-header h1.title { font-size: 1.9rem; margin-bottom: 0.25rem; }
+h1, h2, h3, h4 { line-height: 1.3; margin-top: 2rem; }
+h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+
+/* inline code + blocks */
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+pre code { background: none; border: none; padding: 0; }
+
+/* prose elements */
+a { color: var(--link); }
+blockquote {
+  border-left: 4px solid var(--border);
+  color: var(--muted);
+  margin: 1.5rem 0;
+  padding: 0.25rem 1.25rem;
+}
+table { border-collapse: collapse; margin: 1.5rem 0; }
+th, td { border: 1px solid var(--border); padding: 0.4rem 0.8rem; }
+th { background: var(--code-bg); }
+hr { border: none; border-top: 2px solid var(--border); margin: 2.5rem 0; }
