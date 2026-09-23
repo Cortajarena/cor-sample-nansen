@@ -1,0 +1,91 @@
+# ===========================================================================
+# Nansen sample - pipeline services (imported by the root compose file)
+#
+#   docker compose --profile prefect up server init worker
+#   docker compose --profile dbt run --rm dbt --help
+#
+# Included from the root docker-compose.yml via the `include` directive.
+# ===========================================================================
+
+services:
+  # -------------------------------------------------------- Orchestration
+  # Local Prefect server: REST API + UI at http://localhost:4200
+  server:
+    image: nansen-prefect
+    build:
+      context: ./prefect
+    profiles: ["prefect"]
+    ports:
+      - "4200:4200"
+    environment:
+      PREFECT_API_URL: http://server:4200/api
+      PREFECT_UI_URL: http://localhost:4200
+    volumes:
+      - prefect-data:/root/.prefect
+    command:
+      - server
+      - start
+      - --host=0.0.0.0
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4200/api/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+  # One-shot: ensure the local work pool exists (idempotent)
+  init:
+    image: nansen-prefect
+    build:
+      context: ./prefect
+    profiles: ["prefect"]
+    environment:
+      PREFECT_API_URL: http://server:4200/api
+    depends_on:
+      server:
+        condition: service_healthy
+    # pool + deployment registration (idempotent, see bootstrap.py)
+    entrypoint: ["python", "bootstrap.py"]
+
+  # Worker: polls the work pool and executes flow runs
+  worker:
+    image: nansen-prefect
+    build:
+      context: ./prefect
+    profiles: ["prefect"]
+    environment:
+      PREFECT_API_URL: http://server:4200/api
+    volumes:
+      - prefect-data:/root/.prefect
+    depends_on:
+      server:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+    command:
+      - worker
+      - start
+      - --pool
+      - labels-local
+
+  # -------------------------------------------------------- dbt (BigQuery)
+  # dbt CLI on the public Ethereum dataset.
+  # Auth: mount gcloud credentials read-only, or use a keyfile via env.
+  dbt:
+    image: nansen-dbt
+    build:
+      context: ./dbt
+    profiles: ["dbt"]
+    volumes:
+      # local dev: `gcloud auth application-default login` on the host first
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+    environment:
+      DBT_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
+      DBT_DATASET: ${DBT_DATASET:-nansen_labels_dev}
+      GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
+    # examples: run --rm dbt parse | compile | dbt run | test
+    # (ENTRYPOINT is `dbt`, so the command is just the dbt subcommand)
+    command: ["--help"]
+
+volumes:
+  prefect-data:
