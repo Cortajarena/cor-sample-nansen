@@ -43,9 +43,12 @@ services:
     <<: *slidev
     profiles: ["slides"]
     command:
-      - >-
-        slidev export /slides/slides.md --format=pdf
-        --output=/slides/dist/slides.pdf --timeout=60000
+      - slidev
+      - export
+      - /slides/slides.md
+      - --format=pdf
+      - --output=/slides/dist/slides.pdf
+      - --timeout=60000
 
   # One-shot SPA build for GitHub Pages (docs/dist/site/)
   # --base must match the Pages sub-path (<user>.github.io/<repo>)
@@ -53,9 +56,13 @@ services:
     <<: *slidev
     profiles: ["slides"]
     command:
-      - >-
-        slidev build /slides/slides.md --base=/cor-sample-nansen/
-        --download --router-mode=hash --out=/slides/dist/site
+      - slidev
+      - build
+      - /slides/slides.md
+      - --base=/cor-sample-nansen/
+      - --download
+      - --router-mode=hash
+      - --out=/slides/dist/site
 
   # --------------------------------------------------- Draft (design doc)
   # docs/draft.md is a plain-markdown DOCUMENT - rendered with pandoc, not
@@ -79,9 +86,10 @@ services:
     profiles: ["slides"]
     volumes:
       - ./docs:/docs
-    entrypoint: ["sh", "-c"]
+    entrypoint: ["pandoc"]
     command:
-      - >-
-        pandoc /docs/draft.md --pdf-engine=xelatex --toc
-        "--metadata=title:Nansen: on-chain pipeline design (draft)"
-        --output=/docs/dist/draft.pdf
+      - /docs/draft.md
+      - --pdf-engine=xelatex
+      - --toc
+      - "--metadata=title:Nansen: on-chain pipeline design (draft)"
+      - --output=/docs/dist/draft.pdf
