@@ -1,0 +1,68 @@
+# ===========================================================================
+# Nansen sample - address-label pipeline
+#
+# Everything runs in Docker. No host Node/Python required.
+#
+#   Presentation deck (docs/slides.md):
+#     docker compose --profile slides up slides              # dev server on :3030
+#     docker compose --profile slides run --rm slides-export # -> docs/dist/slides.pdf
+#     docker compose --profile slides run --rm slides-build  # -> docs/dist/site/
+#
+#   Pipeline services live in src/compose.yml (included below):
+#     docker compose --profile prefect up server init worker # API + UI on :4200
+#     docker compose --profile dbt run --rm dbt --help
+# ===========================================================================
+name: nansen-sample
+
+# Pipeline services (prefect + dbt), defined next to their sources
+include:
+  - src/compose.yml
+
+x-slidev: &slidev
+  build:
+    context: .
+    dockerfile: docker/slidev.Dockerfile
+  working_dir: /slides
+  volumes:
+    - ./docs:/slides
+
+services:
+  # -------------------------------------------------------- Presentation
+  # Live deck at http://localhost:3030
+  slides:
+    <<: *slidev
+    profiles: ["slides"]
+    ports:
+      - "3030:3030"
+    command:
+      - slidev
+      - dev
+      - /slides/slides.md
+      - --open=false
+      - --remote
+
+  # One-shot export of the deck to PDF (docs/dist/slides.pdf)
+  slides-export:
+    <<: *slidev
+    profiles: ["slides"]
+    command:
+      - slidev
+      - export
+      - /slides/slides.md
+      - --format=pdf
+      - --output=/slides/dist/slides.pdf
+      - --timeout=60000
+
+  # One-shot SPA build for GitHub Pages (docs/dist/site/)
+  # --base must match the Pages sub-path (<user>.github.io/<repo>)
+  slides-build:
+    <<: *slidev
+    profiles: ["slides"]
+    command:
+      - slidev
+      - build
+      - /slides/slides.md
+      - --base=/cor-sample-nansen/
+      - --download
+      - --router-mode=hash
+      - --out=/slides/dist/site
