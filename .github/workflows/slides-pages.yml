@@ -82,11 +82,16 @@ jobs:
             -e DBT_PROJECT="$DBT_PROJECT" \
             --entrypoint sh dbt -c "dbt docs generate && cp -r target/. /out/"
 
-      - name: Skip dbt docs (no credentials)
+      # Fallback: docs/dbt-docs/ holds a snapshot generated locally (with
+      # credentials) so the published path works even without the secret.
+      # Without any index.html, GitHub Pages serves the deck's 404.html and
+      # /dbt-docs/ silently boots the presentation instead.
+      - name: Use committed dbt docs snapshot (no credentials)
         if: env.GCP_SA_KEY == ''
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: echo "GCP_SA_KEY unset - skipping dbt docs (needs warehouse metadata)"
+        run: |
+          docker compose --profile slides run --rm slides-build sh -c 'mkdir -p /slides/dist/site/dbt-docs; cp -r /slides/dbt-docs/. /slides/dist/site/dbt-docs/'
 
       # Diagrams: docs/diagrams/*.mmd is the single source of truth; the SVGs
       # are rendered from it and referenced by BOTH the deck and the draft, so
