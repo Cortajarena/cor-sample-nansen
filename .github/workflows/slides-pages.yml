@@ -82,16 +82,12 @@ jobs:
             -e DBT_PROJECT="$DBT_PROJECT" \
             --entrypoint sh dbt -c "dbt docs generate && cp -r target/. /out/"
 
-      # Fallback: docs/dbt-docs/ holds a snapshot generated locally (with
-      # credentials) so the published path works even without the secret.
-      # Without any index.html, GitHub Pages serves the deck's 404.html and
-      # /dbt-docs/ silently boots the presentation instead.
-      - name: Use committed dbt docs snapshot (no credentials)
-        if: env.GCP_SA_KEY == ''
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      # The deck's 404.html IS the Slidev SPA, so any missing path on the site
+      # silently boots the presentation. Hash routing does not need it, so we
+      # drop it and let GitHub serve a real 404 instead.
+      - name: Drop the SPA 404 page
         run: |
-          docker compose --profile slides run --rm slides-build sh -c 'mkdir -p /slides/dist/site/dbt-docs; cp -r /slides/dbt-docs/. /slides/dist/site/dbt-docs/'
+          docker compose --profile slides run --rm slides-build sh -c 'rm -f /slides/dist/site/404.html'
 
       # Diagrams: docs/diagrams/*.mmd is the single source of truth; the SVGs
       # are rendered from it and referenced by BOTH the deck and the draft, so
@@ -111,7 +107,7 @@ jobs:
       # `sh -c "..."` into several commands and fails with exit 127.
       - name: Add .nojekyll
         run: |
-          docker compose --profile slides run --rm slides-build sh -c 'mkdir -p /slides/dist/site/draft /slides/dist/site/dbt-docs; for d in "" draft dbt-docs; do touch "/slides/dist/site/$d/.nojekyll"; done'
+          docker compose --profile slides run --rm slides-build sh -c 'for d in "" draft; do mkdir -p "/slides/dist/site/$d"; touch "/slides/dist/site/$d/.nojekyll"; done; if [ -d /slides/dist/site/dbt-docs ]; then touch /slides/dist/site/dbt-docs/.nojekyll; fi'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
