@@ -82,7 +82,15 @@ jobs:
           # "permission denied" on the runner.
           docker compose --profile slides run --rm slides-build \
             sh -c 'mkdir -p /slides/dist/site/dbt-docs'
-          docker compose --profile dbt run --rm \
+          # --no-deps: skip the `bigquery-init` dependency. That service runs
+          # src/dbt/init_dataset.sh with the gcloud/bq CLI, which does NOT
+          # read application_default_credentials.json (only client libraries
+          # do), so it fails here with exit 1 even though dbt-bigquery itself
+          # authenticates fine. Docs are read-only introspection against the
+          # existing dataset - nothing needs bootstrapping. Running the full
+          # pipeline in CI would instead need `gcloud auth
+          # activate-service-account` to prime the SDK credential store.
+          docker compose --profile dbt run --rm --no-deps \
             -v "$PWD/docs/dist/site/dbt-docs:/out" \
             -e DBT_PROJECT="$DBT_PROJECT" \
             --entrypoint sh dbt -c "dbt docs generate && cp target/index.html target/manifest.json target/catalog.json /out/"
