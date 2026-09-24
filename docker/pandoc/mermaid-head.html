@@ -1,0 +1,36 @@
+<!--
+  Injected into the pandoc HTML output (--include-in-header) so Mermaid
+  diagrams render in the browser before we print to PDF.
+
+  Two moving parts:
+    1. the pinned mermaid bundle, baked into the image at
+       /opt/mermaid/mermaid.min.js - pandoc inlines it via --embed-resources,
+       so the emitted HTML is self-contained.
+    2. a shim that rewrites pandoc's <pre class="mermaid"><code>...</code></pre>
+       into the plain <div class="mermaid">source</div> that mermaid expects,
+       then sets document.title so the print step knows when rendering is done.
+-->
+<style>
+  .mermaid { text-align: center; margin: 1.5em 0; }
+  .mermaid svg { max-width: 100%; height: auto; }
+</style>
+<script src="/opt/mermaid/mermaid.min.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    document.querySelectorAll('pre.mermaid').forEach((pre) => {
+      const div = document.createElement('div');
+      div.className = 'mermaid';
+      div.textContent = (pre.querySelector('code') || pre).textContent;
+      pre.replaceWith(div);
+    });
+    window.mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
+    await window.mermaid.run({ querySelector: '.mermaid' });
+    document.title = 'READY';
+  } catch (e) {
+    // print-pdf.cjs fails loudly on an ERR title instead of emitting a
+    // PDF full of unrendered fences.
+    document.title = 'ERR: ' + e.message;
+  }
+});
+</script>

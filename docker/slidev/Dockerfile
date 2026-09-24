@@ -5,6 +5,7 @@
 #
 #   dev server : docker compose --profile slides up slides
 #   pdf export : docker compose --profile slides run --rm slides-export
+#   draft pdf  : docker compose --profile slides run --rm draft-pdf
 #
 # The CLI, the theme and a headless Chromium are installed globally so any
 # deck mounted at /slides can use them without npm install on the host.

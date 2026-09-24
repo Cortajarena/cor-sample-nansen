@@ -20,8 +20,7 @@ include:
 
 x-slidev: &slidev
   build:
-    context: .
-    dockerfile: docker/slidev.Dockerfile
+    context: docker/slidev
   # one shared image for all deck services (avoid per-service rebuilds)
   image: nansen-slidev
   working_dir: /slides
@@ -70,19 +69,56 @@ services:
   draft-build:
     image: nansen-pandoc
     build:
-      context: docker
-      dockerfile: pandoc.Dockerfile
+      context: docker/pandoc
     profiles: ["slides"]
     volumes:
       - ./docs:/docs
-    # CMD from the Dockerfile renders HTML (see docker/render-draft.sh)
+    # CMD from the Dockerfile renders HTML (see docker/pandoc/render-draft.sh)
 
-  # Draft as PDF (pandoc + xelatex - full TeX ships in pandoc/extra)
-  draft-pdf:
+  # Draft -> self-contained HTML, mermaid bundle inlined (pandoc cannot
+  # rasterize diagrams; the browser does). Input for draft-pdf below.
+  #   docker compose --profile slides run --rm draft-pdf-html
+  #   docker compose --profile slides run --rm draft-pdf-html /repo/draft-preview.html
+  draft-pdf-html:
     image: nansen-pandoc
     build:
-      context: docker
-      dockerfile: pandoc.Dockerfile
+      context: docker/pandoc
+    profiles: ["slides"]
+    volumes:
+      - ./docs:/docs
+      - .:/repo
+    entrypoint: ["render-draft-print"]
+    command: ["/docs/dist/draft-print/index.html"]
+
+  # Draft -> PDF: print the HTML above with the Chromium already in the
+  # Slidev image (no second browser toolchain). Depends on draft-pdf-html.
+  #   docker compose --profile slides run --rm draft-pdf
+  draft-pdf:
+    image: nansen-slidev
+    build:
+      context: docker/slidev
+    profiles: ["slides"]
+    environment:
+      NODE_PATH: /usr/local/lib/node_modules
+    volumes:
+      - ./docs:/docs
+      - ./docker/slidev/print-pdf.cjs:/opt/print/print-pdf.cjs:ro
+    entrypoint: ["node", "/opt/print/print-pdf.cjs"]
+    command:
+      - /docs/dist/draft-print/index.html
+      - /docs/dist/draft.pdf
+    depends_on:
+      draft-pdf-html:
+        condition: service_completed_successfully
+
+  # Fallback: draft -> PDF straight through pandoc + xelatex (TeX Live ships
+  # in pandoc/extra). No browser involved and better pagination/footnotes,
+  # but mermaid fences stay literal - pandoc cannot rasterize them.
+  #   docker compose --profile slides run --rm draft-pdf-tex
+  draft-pdf-tex:
+    image: nansen-pandoc
+    build:
+      context: docker/pandoc
     profiles: ["slides"]
     volumes:
       - ./docs:/docs
@@ -92,4 +128,4 @@ services:
       - --pdf-engine=xelatex
       - --toc
       - "--metadata=title:Nansen: on-chain pipeline design (draft)"
-      - --output=/docs/dist/draft.pdf
+      - --output=/docs/dist/draft-tex.pdf

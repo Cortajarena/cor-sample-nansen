@@ -1,5 +1,8 @@
 # deck export output
 docs/dist/
+
+# throwaway preview of the draft (self-contained, ~2.5MB of inlined mermaid)
+draft-preview.html
 docs/node_modules/
 
 # scratch space / drafts in progress
