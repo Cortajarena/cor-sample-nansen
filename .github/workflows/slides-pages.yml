@@ -74,13 +74,18 @@ jobs:
           DBT_PROJECT: ${{ vars.DBT_PROJECT || 'cor-sample-nansen' }}
         run: |
           set -eu
-          mkdir -p "$HOME/.config/gcloud" docs/dist/site/dbt-docs
+          mkdir -p "$HOME/.config/gcloud"
           printf '%s' "$GCP_SA_KEY" \
             > "$HOME/.config/gcloud/application_default_credentials.json"
+          # NB: docs/dist is root-owned by the containers, so the output dir
+          # has to be created inside one - a host-side mkdir gets
+          # "permission denied" on the runner.
+          docker compose --profile slides run --rm slides-build \
+            sh -c 'mkdir -p /slides/dist/site/dbt-docs'
           docker compose --profile dbt run --rm \
             -v "$PWD/docs/dist/site/dbt-docs:/out" \
             -e DBT_PROJECT="$DBT_PROJECT" \
-            --entrypoint sh dbt -c "dbt docs generate && cp -r target/. /out/"
+            --entrypoint sh dbt -c "dbt docs generate && cp target/index.html target/manifest.json target/catalog.json /out/"
 
       # The deck's 404.html IS the Slidev SPA, so any missing path on the site
       # silently boots the presentation. Hash routing does not need it, so we
