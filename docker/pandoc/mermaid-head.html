@@ -1,14 +1,20 @@
 <!--
   Injected into the pandoc HTML output (--include-in-header) so Mermaid
-  diagrams render in the browser before we print to PDF.
+  diagrams render in the browser. Used by BOTH the published site HTML and
+  the print-to-PDF step - GitHub Pages serves static HTML, so without this
+  the ```mermaid fences would stay literal code blocks.
 
   Two moving parts:
     1. the pinned mermaid bundle, baked into the image at
        /opt/mermaid/mermaid.min.js - pandoc inlines it via --embed-resources,
-       so the emitted HTML is self-contained.
+       so the emitted HTML is self-contained (works offline, on Pages, and
+       from a local file:// URL).
     2. a shim that rewrites pandoc's <pre class="mermaid"><code>...</code></pre>
        into the plain <div class="mermaid">source</div> that mermaid expects,
-       then sets document.title so the print step knows when rendering is done.
+       then records the outcome on <html data-mermaid="...">.
+
+  The outcome goes on a data attribute, NOT document.title: this same file
+  is published to the web, and flipping the title would rename the page.
 -->
 <style>
   .mermaid { text-align: center; margin: 1.5em 0; }
@@ -17,6 +23,7 @@
 <script src="/opt/mermaid/mermaid.min.js"></script>
 <script>
 window.addEventListener('DOMContentLoaded', async () => {
+  const root = document.documentElement;
   try {
     document.querySelectorAll('pre.mermaid').forEach((pre) => {
       const div = document.createElement('div');
@@ -26,11 +33,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
     window.mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
     await window.mermaid.run({ querySelector: '.mermaid' });
-    document.title = 'READY';
+    root.dataset.mermaid = 'ready';
   } catch (e) {
-    // print-pdf.cjs fails loudly on an ERR title instead of emitting a
-    // PDF full of unrendered fences.
-    document.title = 'ERR: ' + e.message;
+    // print-pdf.cjs fails loudly on this instead of printing a PDF full of
+    // unrendered fences.
+    root.dataset.mermaid = 'error: ' + e.message;
   }
 });
 </script>

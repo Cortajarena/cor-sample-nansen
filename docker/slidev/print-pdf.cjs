@@ -2,7 +2,7 @@
 //
 //   NODE_PATH=/usr/local/lib/node_modules node print-pdf.cjs <in.html> <out.pdf>
 //
-// Waits for the mermaid shim to flip document.title to READY, so we never
+// Waits for the mermaid shim to set <html data-mermaid="ready">, so we never
 // print a page of unrendered ```mermaid fences. Playwright (not chromium
 // --print-to-pdf directly) because it gives us that wait + real pagination.
 
@@ -20,12 +20,15 @@ if (!src || !out) {
     const page = await browser.newPage();
     await page.goto('file://' + src, { waitUntil: 'load' });
     await page.waitForFunction(
-      () => document.title === 'READY' || document.title.startsWith('ERR'),
+      () => {
+        const s = document.documentElement.dataset.mermaid;
+        return s === 'ready' || (s || '').startsWith('error');
+      },
       null,
       { timeout: 60_000 },
     );
-    const title = await page.title();
-    if (title.startsWith('ERR')) throw new Error(title);
+    const state = await page.evaluate(() => document.documentElement.dataset.mermaid);
+    if (state !== 'ready') throw new Error('mermaid: ' + state);
     await page.pdf({ path: out, format: 'A4', printBackground: true });
     console.log('pdf ->', out);
   } finally {

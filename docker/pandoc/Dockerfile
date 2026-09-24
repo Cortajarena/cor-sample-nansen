@@ -38,9 +38,7 @@ COPY pandoc.css /pandoc.css
 COPY render-draft.sh /usr/local/bin/render-draft
 RUN chmod +x /usr/local/bin/render-draft
 
-# HTML renderer with the mermaid shim inlined (input for the print-to-PDF step)
-COPY render-draft-print.sh /usr/local/bin/render-draft-print
-RUN chmod +x /usr/local/bin/render-draft-print
+# (render-draft.sh writes the mermaid-enabled HTML; no second script needed)
 
 WORKDIR /docs
 

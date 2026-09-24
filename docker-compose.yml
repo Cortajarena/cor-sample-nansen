@@ -75,11 +75,10 @@ services:
       - ./docs:/docs
     # CMD from the Dockerfile renders HTML (see docker/pandoc/render-draft.sh)
 
-  # Draft -> self-contained HTML, mermaid bundle inlined (pandoc cannot
-  # rasterize diagrams; the browser does). Input for draft-pdf below.
-  #   docker compose --profile slides run --rm draft-pdf-html
-  #   docker compose --profile slides run --rm draft-pdf-html /repo/draft-preview.html
-  draft-pdf-html:
+  # Same HTML, but written to the repo root for a quick local eyeball
+  # (gitignored, self-contained so it also works straight from Downloads).
+  #   docker compose --profile slides run --rm draft-preview
+  draft-preview:
     image: nansen-pandoc
     build:
       context: docker/pandoc
@@ -87,11 +86,12 @@ services:
     volumes:
       - ./docs:/docs
       - .:/repo
-    entrypoint: ["render-draft-print"]
-    command: ["/docs/dist/draft-print/index.html"]
+    entrypoint: ["render-draft"]
+    command: ["/repo/draft-preview.html"]
 
-  # Draft -> PDF: print the HTML above with the Chromium already in the
-  # Slidev image (no second browser toolchain). Depends on draft-pdf-html.
+  # Draft -> PDF: print the HTML from draft-build with the Chromium already
+  # in the Slidev image (no second browser toolchain). One HTML, two
+  # consumers - the site page and this PDF.
   #   docker compose --profile slides run --rm draft-pdf
   draft-pdf:
     image: nansen-slidev
@@ -105,10 +105,10 @@ services:
       - ./docker/slidev/print-pdf.cjs:/opt/print/print-pdf.cjs:ro
     entrypoint: ["node", "/opt/print/print-pdf.cjs"]
     command:
-      - /docs/dist/draft-print/index.html
+      - /docs/dist/site/draft/index.html
       - /docs/dist/draft.pdf
     depends_on:
-      draft-pdf-html:
+      draft-build:
         condition: service_completed_successfully
 
   # Fallback: draft -> PDF straight through pandoc + xelatex (TeX Live ships
