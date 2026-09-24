@@ -1,0 +1,178 @@
+version: 2
+
+models:
+  - name: ethereum_dex_uniswap_v3__trades
+    description: >
+      One row per Uniswap V3 swap, in human units, with direction
+      (token in / token out) and a USD proxy when one leg is a stablecoin.
+      Direction comes from the sign of the V3 amounts.
+    columns:
+      - name: swap_id
+        description: transaction_hash + log_index, carried from bronze.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        description: Partition key.
+        tests: [not_null]
+
+      - name: dex
+        description: Source DEX - fixed for this model.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['uniswap_v3']
+
+      - name: pool_address
+        description: Uniswap V3 pool contract (lowercased).
+        tests: [not_null]
+
+      - name: fee_tier
+        description: Pool fee in hundredths of a bip (100 / 500 / 3000 / 10000).
+        tests: [not_null]
+
+      - name: trader
+        description: >
+          The transaction signer (from `transactions.from_address`), i.e.
+          the person who traded. NOT the pool caller: ~99.9% of swaps are
+          routed, so using `sender` would collapse thousands of traders
+          into a couple of hundred router contracts.
+        tests: [not_null]
+
+      - name: pool_caller
+        description: The address that called the pool (`Swap.sender`).
+
+      - name: beneficiary
+        description: Who received the output tokens (`Swap.recipient`).
+
+      - name: is_routed
+        description: True when a router/aggregator sat between signer and pool.
+
+      - name: amount_in
+        description: Tokens sold, in human units.
+        tests: [not_null]
+
+      - name: amount_out
+        description: Tokens bought, in human units.
+        tests: [not_null]
+
+      - name: token1_per_token0
+        description: >
+          Pool price from sqrtPriceX96, decimal-adjusted. Unlike an
+          amount-ratio price this is not biased by this trade's own impact.
+
+      - name: notional_usd
+        description: >
+          USD proxy, only populated when one leg is a whitelisted
+          stablecoin. Null otherwise - we do not invent a price.
+
+  - name: ethereum_dex_uniswap_v3__prices
+    description: >
+      One price observation per swap, from sqrtPriceX96, oriented as
+      "token1 per token0".
+    columns:
+      - name: swap_id
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        tests: [not_null]
+
+      - name: pool_address
+        tests: [not_null]
+
+      - name: token1_per_token0
+        description: How much token1 one token0 costs at that swap.
+        tests: [not_null]
+
+      - name: token0_price_usd
+        description: Populated only when the quote leg is a stablecoin.
+
+  - name: ethereum_dex_uniswap_v3__prices_1h
+    description: >
+      Hourly bars per pool, rolled up from the minute bars. The gold layer
+      works on a 1h grid, so this is the grain it joins to.
+    columns:
+      - name: bar_id
+        description: pool_address + hour.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        tests: [not_null]
+
+      - name: pool_address
+        tests: [not_null]
+
+      - name: close
+        description: Last observed price of the hour (token1 per token0).
+
+  - name: ethereum_dex_uniswap_v3__token_prices_1h
+    description: >
+      One USD price per token per hour - the mark-to-market join target.
+      Pool-level bars cannot mark a portfolio; this unpivots both legs of
+      every pool into token grain and pins stablecoins at 1.0 (USDT is
+      always the quote leg, so a swap never gives it a price).
+    columns:
+      - name: block_timestamp
+        tests: [not_null]
+
+      - name: token_address
+        tests: [not_null]
+
+      - name: price_usd
+        description: Null when the token had no swap that hour - never filled.
+        tests: [not_null]
+
+  - name: ethereum_dex_uniswap_v3__balances
+    description: >
+      Running balances per (address, token) on a forward-filled hourly grid,
+      with `balance_usd`, signed `flow_usd` and absolute `turnover_usd`.
+      Materialized as a table, not incremental: a cumulative balance and
+      insert_overwrite do not mix (see the model header).
+    columns:
+      - name: balance_id
+        description: address + token + hour.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        tests: [not_null]
+
+      - name: address
+        tests: [not_null]
+
+      - name: token_address
+        tests: [not_null]
+
+      - name: balance_usd
+        description: >
+          Null when there is no price for that token/hour. Can be negative
+          for addresses whose history predates START_DATE.
+
+      - name: flow_usd
+        description: Signed value moved during the hour (deposit positive).
+
+      - name: turnover_usd
+        description: Absolute value moved during the hour.
+
+  - name: ethereum_dex_uniswap_v3__prices_1min
+    description: Minute OHLC bars per Uniswap V3 pool.
+    columns:
+      - name: bar_id
+        description: pool_address + minute.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        description: Minute-truncated timestamp (partition key is the day).
+        tests: [not_null]
+
+      - name: pool_address
+        tests: [not_null]
+
+      - name: n_swaps
+        description: Number of swaps in the minute.
+        tests: [not_null]
+
+      - name: high
+        description: Max observed price in the minute.
+
+      - name: low
+        description: Min observed price in the minute.

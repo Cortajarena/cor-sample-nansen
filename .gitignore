@@ -18,3 +18,10 @@ data/
 
 # local env overrides
 .env
+# temporary: oauth link for interactive gcloud login
+link.txt
+
+# dbt artifacts
+target/
+dbt_packages/
+logs/

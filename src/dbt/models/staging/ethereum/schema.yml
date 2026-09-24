@@ -1,0 +1,97 @@
+version: 2
+
+models:
+  - name: stg_ethereum__logs_uniswap_v3_swaps
+    description: >
+      Uniswap V3 `Swap` events decoded from raw Ethereum logs. Bronze layer:
+      1:1 with the source log, plus typed params. Partitioned by day,
+      insert_overwrite, so re-running a window is idempotent.
+    columns:
+      - name: swap_id
+        description: transaction_hash + log_index.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        description: Block time (UTC) - the partition key.
+        tests: [not_null]
+
+      - name: pool_address
+        description: >
+          The Uniswap V3 pool contract that emitted the event (lowercased).
+          Not relationship-tested against the seed on purpose: seeds keep
+          checksummed addresses for readability, so a naive join test
+          fails on case.
+        tests: [not_null]
+
+      - name: initiator
+        description: >
+          The transaction signer (`transactions.from_address`) - the actual
+          trader. `sender` is the pool caller, which is a router for ~99.9%
+          of swaps, so anything that labels a person must use this.
+        tests: [not_null]
+
+      - name: sender
+        description: >
+          Address that CALLED the pool (`Swap.sender`). Usually a router or
+          aggregator contract, not the end user - see `initiator`.
+        tests: [not_null]
+
+      - name: recipient
+        description: Address that received the output tokens (`Swap.recipient`).
+
+      - name: is_routed
+        description: >
+          True when the pool was called by something other than the signer,
+          i.e. a router/aggregator sat in the middle.
+
+      - name: amount0
+        description: >
+          Signed token0 delta from the POOL's perspective: positive = token0
+          entered the pool (user sold it), negative = it left (user bought).
+
+      - name: amount1
+        description: Signed token1 delta, same convention as amount0.
+
+      - name: price_raw
+        description: >
+          token1 per token0 in RAW units, derived from sqrtPriceX96 as
+          (sqrtPriceX96 / 2^96)^2. Human price needs the decimal
+          adjustment applied in the silver layer.
+
+      - name: liquidity
+        description: Pool liquidity after the swap (uint128).
+
+      - name: raw_data
+        description: Raw non-indexed payload, kept for reprocessing.
+
+      - name: raw_topics
+        description: Raw topics array, kept for reprocessing.
+
+  - name: stg_ethereum__token_balance_deltas
+    description: >
+      Daily token balance deltas per (address, token), from token transfers.
+      Deltas rather than running balances so each daily partition stays
+      independently rebuildable under insert_overwrite. Scoped to
+      whitelisted tokens and to addresses seen swapping - see
+      docs/draft.md 3.1.1.
+    columns:
+      - name: block_timestamp
+        description: Day the transfers landed on (partition key).
+        tests: [not_null]
+
+      - name: address
+        description: Holder address (lowercased).
+        tests: [not_null]
+
+      - name: token_address
+        description: ERC-20 contract (lowercased), whitelisted.
+        tests: [not_null]
+
+      - name: delta_raw
+        description: >
+          Signed change in raw token units for the day. Negative = sent out.
+          Raw units, not human units: decimals live in the whitelist seed.
+
+      - name: n_transfers
+        description: Number of transfer legs aggregated into the delta.
+        tests: [not_null]

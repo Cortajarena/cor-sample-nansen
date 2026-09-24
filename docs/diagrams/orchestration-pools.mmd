@@ -1,0 +1,20 @@
+flowchart LR
+    SRC[("BigQuery<br/>public Ethereum dataset")]
+
+    subgraph PREFECT["Prefect image"]
+        W1["worker<br/>pool: labels-local"]
+        FLOW["flow: daily-label-pipeline"]
+        W1 --- FLOW
+    end
+
+    subgraph DBTIMG["dbt image (holds credentials)"]
+        W2["worker<br/>pool: dbt-local"]
+        DBT["dbt run / test"]
+        W2 --- DBT
+    end
+
+    DST[("BigQuery<br/>our dataset")]
+
+    SRC -->|"source(): read"| DBT
+    FLOW -->|"run_deployment()"| DBT
+    DBT -->|"write"| DST

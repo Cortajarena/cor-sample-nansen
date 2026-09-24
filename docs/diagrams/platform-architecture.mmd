@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph ING["Ingestion (cluster)"]
+        RPC["RPC / archive node"]
+        POLL["Polling &amp; listener services"]
+        APIEXT["External APIs"]
+    end
+    subgraph STORE["Cold storage"]
+        RAW[("Raw: Parquet / Iceberg")]
+    end
+    subgraph TRANSFORM["Transform &amp; serve"]
+        DBT["dbt (semantic layer)"]
+        DQ["Data quality tests"]
+        WH[("Warehouse / query engine")]
+        SERV["API + cache"]
+    end
+    ORCH["Orchestrator<br/>Airflow / Prefect"]
+    MON["Monitoring &amp; alerting<br/>Grafana / Prometheus"]
+
+    RPC --> POLL
+    APIEXT --> POLL
+    POLL --> RAW
+    RAW --> DBT --> WH
+    DBT --> DQ
+    WH --> SERV
+    ORCH -.->|schedules, backfills| POLL
+    ORCH -.-> DBT
+    ORCH -.-> DQ
+    MON -.->|collects| POLL
+    MON -.-> DBT
+    MON -.-> SERV

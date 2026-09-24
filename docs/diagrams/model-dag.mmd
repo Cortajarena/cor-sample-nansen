@@ -1,0 +1,37 @@
+flowchart LR
+    subgraph SRC["Source (public dataset)"]
+        LOGS[("logs<br/>Swap events")]
+        TT[("token_transfers")]
+        TX[("transactions<br/>signer")]
+    end
+
+    subgraph BRONZE["Bronze - staging"]
+        SW["stg_ethereum__logs_<br/>uniswap_v3_swaps"]
+        BD["stg_ethereum__token_<br/>balance_deltas"]
+    end
+
+    subgraph SILVER["Silver - transformation"]
+        TR["_v3__trades"]
+        PR["_v3__prices"]
+        P1M["_v3__prices_1min"]
+        P1H["_v3__prices_1h"]
+        TP["_v3__token_prices_1h"]
+        BAL["_v3__balances"]
+    end
+
+    subgraph GOLD["Gold - datamart"]
+        ST["_v3_labels__<br/>smart_traders"]
+    end
+
+    SEEDS[("seeds: token_whitelist<br/>uniswap_v3_pools")]
+
+    LOGS --> SW
+    TX -->|"resolve signer"| SW
+    TT --> BD
+    SEEDS --> SW
+    SW --> TR --> PR --> P1M --> P1H --> TP
+    BD --> BAL
+    TP -->|"mark to market"| BAL
+    SW -->|"watchlist"| BD
+    BAL --> ST
+    TP -->|"BTC proxy: WBTC/USDT"| ST

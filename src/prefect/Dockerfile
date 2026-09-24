@@ -7,7 +7,11 @@
 # In compose (root docker-compose.yml, profile "prefect"):
 #   server  - API + UI on :4200
 #   init    - one-shot: ensure the local work pool exists
-#   worker  - polls the pool for flow runs
+#   worker  - polls the `labels-local` pool for flow runs
+#
+# This image is the orchestrator ONLY: no dbt, no BigQuery credentials, no
+# docker socket. It hands dbt work to the `dbt-local` pool via
+# run_deployment() (see flows/label_pipeline.py).
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim
 

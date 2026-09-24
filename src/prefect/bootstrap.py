@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from prefect.client.orchestration import get_client
+from prefect.client.schemas.actions import WorkPoolCreate
 
 POOL_NAME = "labels-local"
 
@@ -22,9 +23,9 @@ async def ensure_pool() -> None:
         if POOL_NAME in [p.name for p in pools]:
             print(f"pool '{POOL_NAME}' already exists")
             return
+        # Prefect 3.x takes a WorkPoolCreate object, not name=/type= kwargs
         await client.create_work_pool(
-            name=POOL_NAME,
-            type="process",
+            work_pool=WorkPoolCreate(name=POOL_NAME, type="process")
         )
         print(f"pool '{POOL_NAME}' created")
 

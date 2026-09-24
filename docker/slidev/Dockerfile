@@ -31,7 +31,8 @@ RUN npm install -g --no-fund --no-audit \
       playwright-chromium@${PLAYWRIGHT_CHROMIUM_VERSION}
 
 # Make sure the headless browser is present and has the system libs it needs
-RUN node /usr/local/lib/node_modules/playwright-chromium/cli.js install --with-deps chromium \
+RUN node /usr/local/lib/node_modules/playwright-chromium/cli.js \
+        install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /slides

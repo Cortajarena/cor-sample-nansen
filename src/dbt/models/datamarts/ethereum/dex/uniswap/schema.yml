@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: ethereum_dex_uniswap_v3_labels__smart_traders
+    description: >
+      One row per (address, hour): portfolio mark-to-market, logreturns and
+      trailing 24h performance metrics (geometric return, alpha/beta vs the
+      WBTC/USDT benchmark, Sharpe, Sortino, turnover ratio).
+      Returns are TIME-WEIGHTED - external flows are stripped out, see
+      docs/draft.md "Transformation implementation".
+    columns:
+      - name: trader_hour_id
+        description: address + hour.
+        tests: [unique, not_null]
+
+      - name: block_timestamp
+        description: Hour bucket (partition key is the day).
+        tests: [not_null]
+
+      - name: address
+        description: The trader (the transaction signer, not the router).
+        tests: [not_null]
+
+      - name: value_usd
+        description: Sum of mark-to-market balances across all tokens.
+
+      - name: net_flow_usd
+        description: >
+          Signed external flow during the hour. Positive = deposited.
+          Subtracted from value_usd before computing the return.
+
+      - name: logret
+        description: >
+          Time-weighted logreturn: ln((V_t - F_t) / V_(t-1)). Null when the
+          value is not positive on both sides, which happens for addresses
+          whose history predates START_DATE.
+
+      - name: n_obs
+        description: >
+          Observations behind the trailing metrics. Read this before trusting
+          any of them - the sample window is ~30h, so most rows are partial.
+        tests: [not_null]
+
+      - name: geometric_return_24
+        description: exp(sum of 24h logreturns) - 1.
+
+      - name: btc_return_24
+        description: Benchmark return from the WBTC/USDT pool (a proxy for BTC).
+
+      - name: beta_24
+        description: cov(address, benchmark) / var(benchmark) over 24h.
+
+      - name: alpha_24
+        description: Geometric return minus beta x benchmark return.
+
+      - name: sharpe_24
+        description: mean/stdev of logreturns over 24h, scaled by sqrt(24).
+
+      - name: sortino_24
+        description: Same as Sharpe but with downside deviation only.
+
+      - name: turnover_ratio_24
+        description: >
+          Trailing 24h turnover over portfolio value - activity independent
+          of direction, computed from absolute flows.

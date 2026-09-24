@@ -59,6 +59,46 @@ jobs:
           docker compose --profile slides run --rm draft-build
           sh -c "mv /docs/dist/draft.pdf /docs/dist/site/draft/draft.pdf"
 
+      # dbt docs (lineage graph, model + column docs) published alongside the
+      # deck at <pages>/dbt-docs/.
+      #
+      # `dbt docs generate` introspects the warehouse, so it needs real
+      # credentials: set GCP_SA_KEY (a service-account JSON key) and
+      # DBT_PROJECT in repo secrets/variables. Without them we skip instead
+      # of failing the deploy - the deck and the draft are the deliverable,
+      # the docs are a bonus.
+      - name: Build dbt docs
+        if: env.GCP_SA_KEY != ''
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          DBT_PROJECT: ${{ vars.DBT_PROJECT || 'cor-sample-nansen' }}
+        run: |
+          set -eu
+          mkdir -p "$HOME/.config/gcloud" docs/dist/site/dbt-docs
+          printf '%s' "$GCP_SA_KEY" \
+            > "$HOME/.config/gcloud/application_default_credentials.json"
+          docker compose --profile dbt run --rm \
+            -v "$PWD/docs/dist/site/dbt-docs:/out" \
+            -e DBT_PROJECT="$DBT_PROJECT" \
+            --entrypoint sh dbt -c "dbt docs generate && cp -r target/. /out/"
+
+      - name: Skip dbt docs (no credentials)
+        if: env.GCP_SA_KEY == ''
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: echo "GCP_SA_KEY unset - skipping dbt docs (needs warehouse metadata)"
+
+      # Diagrams: docs/diagrams/*.mmd is the single source of truth; the SVGs
+      # are rendered from it and referenced by BOTH the deck and the draft, so
+      # they are copied into the site root once. Done inside the container
+      # because dist/ is root-owned and a host-side cp gets "permission denied".
+
+      - name: Copy diagrams into the site
+        run: >
+          docker compose --profile slides run --rm slides-build
+          sh -c "mkdir -p /slides/dist/site &&
+                 cp -r /slides/diagrams /slides/dist/site/diagrams"
+
       # GitHub Pages must not process the output with Jekyll.
       # NB: dist/ is created root-owned by the container, so the touch has to
       # happen inside the container as well - a host-side touch gets
@@ -66,7 +106,10 @@ jobs:
       - name: Add .nojekyll
         run: >
           docker compose --profile slides run --rm slides-build
-          touch /slides/dist/site/.nojekyll /slides/dist/site/draft/.nojekyll
+          sh -c "mkdir -p /slides/dist/site/dbt-docs &&
+                 touch /slides/dist/site/.nojekyll
+                       /slides/dist/site/draft/.nojekyll
+                       /slides/dist/site/dbt-docs/.nojekyll"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

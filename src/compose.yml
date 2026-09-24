@@ -7,12 +7,45 @@
 # Included from the root docker-compose.yml via the `include` directive.
 # ===========================================================================
 
-# host ADC credentials -> container (read-only), shared by GCP services
+# Host gcloud credentials -> container, shared by GCP services.
+#
+# The whole config dir, not just the ADC json: `bq`/`gcloud` (used by
+# bigquery-init) read their own credential store and ignore
+# GOOGLE_APPLICATION_CREDENTIALS - and they need it WRITABLE (they create
+# credentials.db and refresh the token cache), hence no `:ro`.
+# Client libraries (dbt-bigquery) still pick up the ADC json inside it.
 x-gcloud-creds: &gcloud-creds
-  ${HOME}/.config/gcloud/application_default_credentials.json:/root/.config/gcloud/application_default_credentials.json:ro
+  ${HOME}/.config/gcloud:/root/.config/gcloud
+
+# ADC file inside the container (referenced twice, and too long to inline
+# twice without blowing past 90 columns)
+x-adc-path: &adc-path /root/.config/gcloud/application_default_credentials.json
 
 x-gcloud-env: &gcloud-env
-  GOOGLE_APPLICATION_CREDENTIALS: /root/.config/gcloud/application_default_credentials.json
+  GOOGLE_APPLICATION_CREDENTIALS: *adc-path
+  # without this, google-auth warns "No project ID could be determined"
+  # (dbt itself gets the project from profiles.yml, but the client libs
+  # used by the auth layer do not)
+  GOOGLE_CLOUD_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
+
+# dbt image running as a Prefect worker (pool: dbt-local). Shares the dbt
+# toolchain and the BigQuery credentials mount with the `dbt` CLI service.
+x-dbt-worker: &dbt-worker
+  image: nansen-dbt
+  build:
+    context: ./dbt
+  profiles: ["dbt"]
+  working_dir: /usr/src/dbt
+  volumes:
+    - *gcloud-creds
+  environment:
+    PREFECT_API_URL: http://server:4200/api
+    DBT_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
+    DBT_DATASET: ${DBT_DATASET:-nansen_labels_dev}
+    DBT_LOCATION: ${DBT_LOCATION:-US}
+    # hard floor for every source scan - macros/incremental/date_window
+    START_DATE: ${START_DATE:-2026-09-23}
+    <<: *gcloud-env
 
 x-prefect: &prefect
   image: nansen-prefect
@@ -21,6 +54,8 @@ x-prefect: &prefect
   profiles: ["prefect"]
   environment:
     PREFECT_API_URL: http://server:4200/api
+  # No code mount: the flows are COPYed into the image, so what runs is what
+  # is in git (and what CI builds). Edit -> `docker compose build`.
 
 services:
   # -------------------------------------------------------- Orchestration
@@ -49,7 +84,11 @@ services:
       server: {condition: service_healthy}
     entrypoint: ["python", "bootstrap.py"]
 
-  # Worker: polls the work pool and executes flow runs
+  # Worker: polls the work pool and executes flow runs.
+  #
+  # Orchestrator only: it does not run dbt and holds no credentials. The dbt
+  # step is a separate deployment on the `dbt-local` pool (dbt image), which
+  # this flow triggers with run_deployment().
   worker:
     <<: *prefect
     volumes:
@@ -73,6 +112,9 @@ services:
     environment:
       DBT_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
       DBT_DATASET: ${DBT_DATASET:-nansen_labels_dev}
+      DBT_LOCATION: ${DBT_LOCATION:-US}
+      # keep gcloud/bq off whatever default project the host config points at
+      CLOUDSDK_CORE_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
       <<: *gcloud-env
     entrypoint: ["bash", "/usr/local/bin/init_dataset.sh"]
 
@@ -85,14 +127,40 @@ services:
     profiles: ["dbt"]
     volumes:
       - *gcloud-creds
+      # no code mount: the project is COPYed in, so dbt parses what is in git
     environment:
       DBT_PROJECT: ${DBT_PROJECT:-your-gcp-project-id}
       DBT_DATASET: ${DBT_DATASET:-nansen_labels_dev}
+      START_DATE: ${START_DATE:-2026-09-23}
       <<: *gcloud-env
     depends_on:
       bigquery-init: {condition: service_completed_successfully}
     # examples: run --rm dbt parse | compile | run | test
     command: ["--help"]
+
+  # ------------------------------------------------- dbt worker (2nd pool)
+  # Same dbt image, but running a Prefect worker instead of the dbt CLI: it
+  # polls the `dbt-local` pool, so the orchestrator can hand it dbt work
+  # without holding credentials or a docker socket.
+  #
+  # NB: ENTRYPOINT of the dbt image is `dbt`, so it is cleared here.
+  # NB: no depends_on `server` - that service lives in the `prefect` profile,
+  # and compose fails to resolve a dependency on a service that is filtered
+  # out. bootstrap.py waits for the API itself, so `docker compose --profile
+  # dbt run --rm dbt parse` keeps working without the prefect stack.
+  dbt-init:
+    <<: *dbt-worker
+    entrypoint: ["python", "/usr/src/dbt/flows/bootstrap.py"]
+
+  dbt-worker:
+    <<: *dbt-worker
+    restart: unless-stopped
+    # the dbt image's ENTRYPOINT is `dbt`; this service runs the CLI
+    entrypoint: ["prefect"]
+    depends_on:
+      bigquery-init: {condition: service_completed_successfully}
+      dbt-init: {condition: service_completed_successfully}
+    command: ["worker", "start", "--pool", "dbt-local"]
 
 volumes:
   prefect-data:

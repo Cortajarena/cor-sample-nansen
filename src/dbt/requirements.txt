@@ -7,3 +7,7 @@ dbt-bigquery==1.12.1
 
 # Note: dbt *packages* (dbt-utils, dbt_expectations, ...) do NOT go here -
 # they belong in packages.yml and are installed by `dbt deps`.
+# Prefect client + worker: this image runs its own worker on the `dbt-local`
+# pool so the orchestrator can trigger dbt as a deployment instead of
+# shelling out to docker.
+prefect==3.8.6

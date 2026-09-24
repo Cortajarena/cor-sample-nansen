@@ -1,0 +1,26 @@
+
+# Prefect project for the dbt image (src/dbt).
+#
+# The orchestrating flow (src/prefect) triggers this one by deployment name,
+# so dbt never has to be installed next to the orchestrator.
+
+name: nansen-dbt
+prefect-version: 3.8.6
+
+build: null
+push: null
+
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /usr/src/dbt
+
+deployments:
+  - name: dbt-run
+    version: 0.1.0
+    description: "Run a dbt command inside the dbt image (dbt-local pool)."
+    entrypoint: flows/dbt_run.py:dbt_run
+    work_pool:
+      name: dbt-local
+      work_queue_name: default
+      job_variables: {}
+    schedules: []   # triggered by the pipeline flow, never on a schedule

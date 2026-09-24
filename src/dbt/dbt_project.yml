@@ -7,9 +7,56 @@ config-version: 2
 profile: nansen_labels
 
 model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
 clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Lower bound for every source scan. The public Ethereum dataset is
+  # petabyte-scale: without this, a full refresh scans everything.
+  # Override with the START_DATE env var (see macros/incremental/date_window).
+  start_date: "2026-09-23"
+
+seeds:
+  nansen_labels:
+    +quote_columns: false
+    # no +materialized here: seeds must stay materialized='seed'
+    # (dbt rejects anything else), and `dbt seed` is always a full refresh
 
 models:
   nansen_labels:
-    # staging over the public dataset first, marts later
-    +materialized: view
+    # ------------------------------------------------------------- bronze
+    # 1:1 with the source, typed, decoded. insert_overwrite on daily
+    # partitions so a re-run is idempotent.
+    staging:
+      +materialized: incremental
+      +incremental_strategy: insert_overwrite
+      +partition_by:
+        field: block_timestamp
+        data_type: timestamp
+        granularity: day
+      # pool_address, not pair_address: V3 has pools, not pairs
+      +cluster_by: ["pool_address"]
+
+    # -------------------------------------------------------------- silver
+    # Business logic: trades, prices, minute bars. Same partitioning - the
+    # grain stays block_timestamp so partitions line up with staging.
+    transformation:
+      +materialized: incremental
+      +incremental_strategy: insert_overwrite
+      +partition_by:
+        field: block_timestamp
+        data_type: timestamp
+        granularity: day
+      +cluster_by: ["pool_address"]
+
+    # ---------------------------------------------------------------- gold
+    # Datamarts: address labels. Partitioned by the label snapshot date.
+    datamarts:
+      +materialized: incremental
+      +incremental_strategy: insert_overwrite
+      +partition_by:
+        field: label_date
+        data_type: timestamp
+        granularity: day
+      +cluster_by: ["address"]
