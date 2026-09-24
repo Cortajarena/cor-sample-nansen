@@ -1,6 +1,6 @@
 ---
 theme: seriph
-title: 'Labels for the Chain'
+title: 'Nansen: on-chain pipeline design'
 info: |
   Nansen take-home assignment — Senior Data Engineer.<br/>
   Designing the foundations of a pipeline that produces valuable labels for blockchain addresses.
@@ -16,7 +16,7 @@ mdc: true
 layout: cover
 ---
 
-# Labels for the Chain
+# Nansen: on-chain pipeline design
 
 Foundations of a pipeline that produces **valuable labels for blockchain addresses**
 
