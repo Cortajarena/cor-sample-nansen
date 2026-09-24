@@ -94,22 +94,19 @@ jobs:
       # because dist/ is root-owned and a host-side cp gets "permission denied".
 
       - name: Copy diagrams into the site
-        run: >
-          docker compose --profile slides run --rm slides-build
-          sh -c "mkdir -p /slides/dist/site &&
-                 cp -r /slides/diagrams /slides/dist/site/diagrams"
+        run: |
+          docker compose --profile slides run --rm slides-build sh -c 'mkdir -p /slides/dist/site; cp -r /slides/diagrams /slides/dist/site/diagrams'
 
       # GitHub Pages must not process the output with Jekyll.
       # NB: dist/ is created root-owned by the container, so the touch has to
       # happen inside the container as well - a host-side touch gets
       # "permission denied" on the CI runner.
+      # NB: keep the shell command on ONE line. In a YAML folded scalar (>)
+      # more-indented lines keep their newlines, which turns a multi-line
+      # `sh -c "..."` into several commands and fails with exit 127.
       - name: Add .nojekyll
-        run: >
-          docker compose --profile slides run --rm slides-build
-          sh -c "mkdir -p /slides/dist/site/dbt-docs &&
-                 touch /slides/dist/site/.nojekyll
-                       /slides/dist/site/draft/.nojekyll
-                       /slides/dist/site/dbt-docs/.nojekyll"
+        run: |
+          docker compose --profile slides run --rm slides-build sh -c 'mkdir -p /slides/dist/site/draft /slides/dist/site/dbt-docs; for d in "" draft dbt-docs; do touch "/slides/dist/site/$d/.nojekyll"; done'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
