@@ -18,6 +18,8 @@ layout: cover
 
 # Nansen: on-chain pipeline design
 
+![nansen](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSU4M2BVJsLUw2Ac8mHao6bDrtS8N0ADnWklqAFLDZpA&s=10)
+
 Foundations of a pipeline that produces **valuable labels for blockchain addresses**
 
 Nansen — Senior Data Engineer take-home
@@ -52,6 +54,8 @@ Three properties a label must have:
 - **Timely** — aligned to a snapshot in time, dynamic and mutable; time is part of the data model and the grain decision
 - **Actionable** — adds information you can act upon
 - **Trustworthy** — inferred on-chain, or from external sources with high confidence
+
+![fig5](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0GGz3Ovaw3Up4vzzm-N0pfdvLt_Se5-yDCqsyLib7_q4_ns8wreJWduEE&s=10)
 
 <!--
 Timeliness is the one people forget: a label without a timestamp is a fact about "now" that silently rots. This is why every table in the sample is partitioned and every label row carries a label_date.
@@ -119,13 +123,31 @@ Good example of "actionable" and "timely" at once: at_risk is only meaningful at
 - **Occam's razor** — fewer components is usually more reliable; but requirements dictate architecture (event-driven backend → you add a queue; low-latency source → you adapt)
 - **Then lock it**: reliable, scalable, measurable, with backfill and DR
 
+And define **data contracts & schemas** for anything exposed — with **SLI / SLO / SLA** up front, not retrofitted.
+
 <!--
-This is section 1.2. The point to land: the pipeline design is a consequence of requirements, not of fashion.
+This is section 1.2. The point to land: the pipeline design is a consequence of requirements, not of fashion. The data contract close leads into the next slide.
+-->
+
+---
+
+# Data contracts: the API of data
+
+- Schema as a **contract** — the datamart's shape is what internal & external consumers build against
+- Evolution is **additive-first**: add / widen freely; destructive changes are a *versioned event*, never an in-place surprise
+- Versions travel with producers: new version → backfill → swap → deprecate on a window
+
+![data contract](https://www.entropy-data.com/media/what_is_a_data_contract_social.png)
+
+<!--
+Data contracts close the loop on the label properties from earlier: trustworthy means a consumer can rely on the shape as well as the semantics.
 -->
 
 ---
 
 # Approaches: (1) entity labels from external sources
+
+![arkham](https://cdn.prod.website-files.com/6296255d9030be506dc09bb7/69b183490f16077f6b6abae5_36dd2acc.png)
 
 Providers like Glassnode, Arkham or Dune compile web2 information:
 
@@ -159,13 +181,17 @@ Note the two data families: token transfers (who holds what) and logs/traces (wh
 
 # Approaches: (3) CLOB chains
 
-Central limit order books (HyperCore, Jupiter) expose:
+![bookmap](https://blog.bookmap.com/wp-content/uploads/2018/10/Screenshot_3-1.png)
 
-- age, spoofing, cancel rates
-- double-sided liquidity, tranching
-- soft labelling from order-book behaviour
+In HyperLiquid HyperCore, **L4** is visible: the **sparse book** — each price is a
+FIFO queue of orders with identity (`o_id`, *address*).
 
-**Far richer signal than an AMM** — fees are minimal, both long and short are cheap, so the universe of relevant traders is much larger.
+- **MM patterns** — two-sided + *hysteretic* placement; tranching/laddering edits size without losing queue priority
+- **HFT vs MM** — order-cancellation ratio doubles as a **spoofer** signal; leverage, cross-asset hedging
+- **Soft labelling** — rolling-window behaviour features
+- Balances, leverage, margin → funds & whales (low leverage, high balance)
+
+**Far richer signal than an AMM** → larger universe of relevant traders.
 
 <!--
 Land the punchline: more statistical significance → more discoverable alpha. This is the honest caveat on our own sample.
@@ -175,32 +201,38 @@ Land the punchline: more statistical significance → more discoverable alpha. T
 
 # Approaches: (4) smart money
 
-- Rolling weighted portfolio, decoupling
-- Rebalancing activity as a proxy for statistical significance
-- Proxy it via rebalance / volume against nominal value
-- Beta, market neutrality, VaR and vol vs BTC vol
-- History
+![Modern Portfolio Theory](https://cdn.prod.website-files.com/6318ee7f8cd2577347722ef7/67360afeaef346c7d24073cf_6736092b176246857f50e78b_image%2520(3).png)
 
-Plus insider-style signals from on-chain protocol data.
+"dynamically qualify smart money" = traditional finance + MPT measures:
+
+- **Alpha** — geometric returns, benchmarked (BTC / cap-weighted)
+- **Activity** — turnover vs nominal balance → statistical proof of performance
+- **Beta** — low β + high α with diversification and shorting = *market-neutral* skill
+- **VaR / σ** — risk behaviour (longer-horizon funds), vol vs BTC vol
+- **Sharpe / Sortino** — risk-adjusted returns, rolling
+
+> teaser: can rolling trader returns build a **synthetic top-500 tracker**?
 
 <!--
-This is the section our sample actually implements a version of: portfolio-level metrics rather than per-trade heuristics.
+This is the section our sample actually implements a version of: portfolio-level metrics rather than per-trade heuristics. The teaser foreshadows "Why this is useful".
 -->
 
 ---
 
 # Approaches: (5) ML based labelling
 
-*Open item in the draft (todo_3).*
+Labelling is also **quantile features** — the same normalisation that accelerates
+histogram-based gradient boosting.
 
-Candidate directions once the feature tables exist:
+- continuous or quantised behavioural features per address
+- **supervised** — when trusted examples exist (external entity tags, known exploits)
+- **unsupervised** — clustering / anomaly detection (bots, wash activity)
+- discipline first: feature scales & normalisation set what these models can see
 
-- clustering addresses by behaviour
-- supervised labels where we have trusted examples (external entity tags)
-- anomaly detection for bots / wash activity
+> *no model labels are in the sample — timeboxed out deliberately.*
 
 <!--
-Be honest: not implemented, and deliberately so within the timebox. Frame it as the natural next step once the silver feature layer exists.
+Frame it as the natural next step once the silver feature layer exists. Not implemented, and honestly said: the sample's contribution here is feature tables and grain decisions, on which any ML variant drops in.
 -->
 
 ---
@@ -262,8 +294,9 @@ Do not skip this slide. Volunteering the weakness is the strongest credibility m
 - **Services** — polling, scrapers, stream listeners, RPC nodes; orchestrated by Airflow/Prefect, with sync backups for backfill
 - **Cold storage** (S3/GCS) — data as raw as possible, Parquet + Apache Iceberg catalog
 - **Query engine + semantic layer** (dbt, Spark) + data quality (dbt tests, Great Expectations)
-- **API layer** — cache (Redis); engine choice decides whether it can serve directly
-- **Monitoring** — Grafana/Prometheus, standardised JSONL logs
+- **Serving db** — efficient OLAP (ClickHouse, StarRocks); reverse ETL from the warehouse: datamarts *push* after transform (watermark over the db polling it)
+- **API layer** — versioned look; CH ships its own cache, Redis optional
+- **Monitoring** — Grafana w/ Prometheus and logs, standardised JSONL logs
 
 <!--
 Note the coupling decision: BigQuery/Snowflake/ClickHouse couple storage+engine; Trino/Databricks run on Iceberg/Delta in your own storage. That choice propagates into the API layer.
@@ -277,6 +310,16 @@ Note the coupling decision: BigQuery/Snowflake/ClickHouse couple storage+engine;
 
 <!--
 Walk it left to right: everything lands in cold storage raw, dbt is the only thing that models it, and the orchestrator sits ABOVE both ingestion and transformation. Monitoring is dashed because it is cross-cutting, not a stage.
+-->
+
+---
+
+# The sample, end to end
+
+![pipeline-system](/diagrams/pipeline-system.svg)
+
+<!--
+Same shape, now concretised to the sample pipeline: node/archive → raw EVM tables to Parquet/Iceberg → dbt bronze→silver→gold → reverse ETL into a serving db with v1/v2 → versioned API → synthetic portfolios. Orchestration + monitoring cut across, exactly as in the platform diagram.
 -->
 
 ---
@@ -302,6 +345,21 @@ The key edge is run_deployment: the orchestrator never shells out, never mounts 
 
 <!--
 Explain why two images: dependency trees clash, and only the dbt container should hold credentials. The alternative (docker socket / sibling containers) is fragile — mention you tried and rejected it.
+-->
+
+---
+
+# Reverse ETL: warehouse → serving db
+
+> the serving db owns **nothing permanently** — it is a re-derivable projection, deployed like software
+
+- **Transfer** — batch push with a **watermark** (freshness SLA *is* the watermark); CDC only if truly low-latency; pull couples the engine to warehouse cost
+- **Schema** — additive-first reconciler: desired state from the semantic layer, **hard-fail on destructive** → versioned migration
+- **Versions** — fill `_v2` → **parity job** → close the cutover window → **atomic swap** (`EXCHANGE TABLES`), `_v1` alive for N days
+- **API** — versioned views + routes, dual-running through a deprecation window; the swap and the route flip ship as one release
+
+<!--
+This is the pattern that makes schema migration, backfill and deployment the same job. Everything is idempotent and re-derivable — the warehouse remains the single state owner.
 -->
 
 ---

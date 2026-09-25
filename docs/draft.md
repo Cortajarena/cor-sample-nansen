@@ -1,3 +1,5 @@
+![](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSU4M2BVJsLUw2Ac8mHao6bDrtS8N0ADnWklqAFLDZpA&s=10)
+
 # Nansen: on-chain pipeline design
 
 
@@ -22,7 +24,9 @@ It's important to take into account that a correct approach towards labelling sh
 - Labels are **actionable**, they should be able to add information to act uppon.
 - They should be **trustworthy**, either inferred from on-chain info or (in some cases) from external sources with high confidence.
 
-The concept of labelling really is an open-ended problem. From a customer centric, bottom up approach, we need to understand who our customers & users are to derive what a valuable label means. Labels answer questions like:
+![A blockchain network with six transactions and 12 addresses (Fig. 5)](https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT0GGz3Ovaw3Up4vzzm-N0pfdvLt_Se5-yDCqsyLib7_q4_ns8wreJWduEE&s=10)
+
+The concept of labelling really is an open-ended problem. From a customer centric, bottom up approach, we need to understand who our customers & users are to derive what a valuable label means. Labels answer questions like:\
 
 - ***WHO is this entity?:*** exchanges, treasuries, protocol builders, whales, market makers, smart contracts (which may have automated behavior built in so are worth tracking, etc).
 - ***WHAT does this entity do?:*** are they liquidity providers, speculators, MEV-like bots, smart contract / factory deployers, stakers, staking aggregators, routers, etc.
@@ -31,6 +35,7 @@ The concept of labelling really is an open-ended problem. From a customer centri
 The reason why the bottom up approach is important is because our users directly dictate the value of a label. Imagine we are a staking infra provider who wants to operate for big funds, exchanges or entities (banks) to provide the staking infrastructure as a service. We really only care about these labels (not so much about smart traders or spoofers) since we use the labels as a sales tool to try to get customers.
 
 *In the case of Nansen, where users will mainly be looking for:*
+
 - Alpha: finding statistically significant sources of information that are not fully priced in and can provide risk adjusted returns that are better than holding a *traditional* weighted average portfolio.
 - Beta: some users will be looking for sources of increased beta exposure (pump or vol), e.g. finding the next move of assets (or a subclass of assets like small cap tokens) that will, in case of a run, provide increased beta exposure. In other cases, users may want to do the opposite, find assets with positive alpha and low to zero beta (low correlation to the index or BTC).
 - Sigma: raw exposure or hedging against future volatility moves.
@@ -42,10 +47,13 @@ These requirements should shape the kind of information we want our labels to pr
 
 When developing a new pipeline, we generally want to design it around the following principles and steps:
 
-- Risk mitigation and research: we may lean on research and data exploration to verify the usefulness of a data source, through techniques like market research, user research (in case we are ingesting or transforming internal data coming from an internal service or source) and/or internal stakeholder collaboration (see our internal stakeholders as possible consumers of internal APIs and data).
-- Once the hypothesis has been validated, we want to design the pipeline around the requirements, bottom up making sure we fulfill these requirements following principles such as simplicity, robustness, monitoring capabilities, scalability, data quality, backfilling / disaster recovery, and adaptability to our datamart API layer and current systems.
-- In general, we may want to avoid adding new components to an already existing data platform if possible following the Occam's Razor principle; usually, the lesser the components, the more realiable a system (in general). However, the data requirements will dictate the system and architecture design. If we have a super basic data platform but our backend starts using an event based architecture, we may have to add an event queue ingestion and processing system. Or if we already have near real time mini-batch processing set up but a new data source requires low latency by design (e.g. its value heavily relies on low latency) we may have to adapt our system design and architecture to these requirements.
-- Lastly, once the system implementation has been locked, we want to make sure it's reliable, scalable, measurable (it has to be easily monitored) and has the proper backfilling and disaster recovery mechanisms.
+- ***Risk mitigation and research:*** we may lean on research and data exploration to verify the usefulness of a data source, through techniques like market research, user research (in case we are ingesting or transforming internal data coming from an internal service or source) and/or internal stakeholder collaboration (see our internal stakeholders as possible consumers of internal APIs and data).
+- Once the hypothesis has been validated, we want to design the pipeline around the requirements, bottom up making sure we fulfill these ***requirements*** following principles such as simplicity, robustness, monitoring capabilities, scalability, data quality, backfilling / disaster recovery, and adaptability to our datamart API layer and current systems.
+- In general, we may want to ***avoid adding new components*** to an already existing data platform if possible following the Occam's Razor principle; usually, the lesser the components, the more realiable a system (in general). However, the data requirements will dictate the system and architecture design. If we have a super basic data platform but our backend starts using an event based architecture, we may have to add an event queue ingestion and processing system. Or if we already have near real time mini-batch processing set up but a new data source requires low latency by design (e.g. its value heavily relies on low latency) we may have to adapt our system design and architecture to these requirements.
+- Lastly, once the system implementation has been locked, we want to make sure it's reliable, scalable, measurable (it has to be easily monitored) and has the proper backfilling and disaster recovery mechanisms (SLI, SLO, SLA measurements, definitions, etc).
+- ***Note: we may also need to have define our data contracts & schemas*** as the data may be exposed or interfaced to other internal or external services.
+
+![Data contract](https://www.entropy-data.com/media/what_is_a_data_contract_social.png)
 
 
 ----------
@@ -58,6 +66,8 @@ This section will discuss different approaches (and just ideas that should be va
 ### 2.1 Entity labels from external sources
 
 Some entity-label providers like [Glassnode](https://studio.glassnode.com/), [Arkham](https://www.arkm.com/) or [Dune](https://dune.com/) compile information from different web2 sources (reports, websites, information providers, API aggregators, etc) which may tag addresses as exchanges, fund treasuries, node operators, protocols/contract deployers, etc. They may also run sophisticated graph algorithms (for instance Glassnode does this for UTXO chains like BTC or BTC cash) or heuristics on EVMs to add soft labels to new addresses quicker than anyone else. These may be useful for users to track what big players or the overall market is doing (*are whales inactive? Are long term holders moving funds to exchanges? What are big funds' recent movements? How are staking operators' treasuries handling liquidity?*).
+
+![Arkham](https://cdn.prod.website-files.com/6296255d9030be506dc09bb7/69b183490f16077f6b6abae5_36dd2acc.png)
 
 > *These are usually simple `ELT | poll -> normalize -> transform` pipelines. Poll from APIs (or listen to socket streams), parse, ingest and store. Then a classic layered data model will have an initial lower grain layer (bronze) where we just normalize different inputs to our desired schema, ensure id-grain level uniqueness and normally follow a slow-changing-dimension approach where we process our event timestamps to add a time grain and validity to labels (`timestamp_from`, `timestamp_to`, etc). For graph algorithms we may have more complex distributed jobs that come after our initial semantic layer, with heuristics written in plain `pySpark` or similar, but these are still linear pipelines.*
 
@@ -72,44 +82,37 @@ EVMs (or similar chains) provide in depth information of a certain address's beh
 
 ### 2.3 Behavioral & descriptive labels in CLOB chains (L4 or similar)
 
-CLOB chains (like HyperLiquid's HyperCore or Jupiter) provide deep information regarding the interaction of addresses with the chain's central limit order books. 
+CLOB chains (like HyperLiquid's HyperCore or Jupiter) provide deep information regarding the interaction of addresses with the chain's central limit order books. In HL, L4 information is available, this means we have a sparse book where each price contains a FIFO ordered queue of orders with `o_id` and `address` info, which is unprecedented and gives us the opportunity to look at market participants' behavior in ways that other DEXs don't, such as:
 
-```txt
-Notes
-Behavioral, CLOB:
-Age
-Spoofing, cancel rates
-Double sided liquidity
-Tranching (funds)
-Soft labeling
-```
+- Looking at order placement patterns: market makers usually place two sided liquidity, they use hysteretical order placement patterns (to preserve queue priority), and order tranching and laddering (also to edit liquidity exposure without losing queue position) ***[WE CAN DISCUSS FURTHER]***
+- Of course we can track balances, leverage, margin, etc, to identify generic funds or whales (usually low leverage, high balance), etc.
+- Order removal patterns and activity can help us identify HFT MMs vs. more traditional market makers. For instance HFTs have a high cancellation ratio (the cancel a huge percentage of their orders), high leverage, cross-asset hedging, etc. High order cancellation ratio is also typical spoofer behavior.
+- We can also use a soft labelling approach, where we create rolling window features tu measure participant behavior.
 
-[ todo_1 ]
+![Example of order flow / order book platform](https://blog.bookmap.com/wp-content/uploads/2018/10/Screenshot_3-1.png)
 
 ### 2.4 Smart Money (both EVM or CLOB): an alternative approach
 
-```txt
-Notes:
-Smart Money: rolling weighted portfolio, decoupling, etc
-Rebalancing activity -> proxy for statistical significance
-Can be proxied with rebalance / volume with respect to nominal value
-Beta
-Market neutrality
-VaR and vol vs BTC vol
-History
-Insiders from on-chain info:
-Protocols
-```
+In order to dynamically (in a timely manner) qualify smart money, we can definitely follow super diverse approaches, and combine measures of traditinal finance, modern portfolio theory, etc; noting stuff like:
 
-```
-Discuss synthetic tracker
-```
+- We want to, of course, look at participants that exhibit a sophisticated behavior, with patterns such as:
+  - Positive **alpha**: we can either measure ***geometric returns*** to compare accross traders, but we can also benchmark against BTC or a market cap weighted portfolio.
+  - Enough trading activity; ***measuring trading activity*** (number of trades or even better portfolio turnover vs nominal balance) can give us more or less statistical proof of performance.
+  - ***Diversification:*** trading multiple correlated or uncorrelated assets, or engaging in traditional short selling or shorting futures shows skill
+  - We can measure stuff like ***beta*** vs index (or BTC) to account for the trader's correlation and covariance with respect to the market, and answer the question *Is it skill or vol driven correlation?*. In a same way, we can measure portfolio VaR (mostly for longer holding traders or funds) and volatility (**sigma**), as an additional measure of risk behavior. Traders with high activity, positive alpha, shorting or diversification and low beta show extreme skill (usually market makers or outstanding market neutral traders). [summary of ***market neutrality***]
+  - Lastly, more advanced figures like rolling **sharpe** or **sortino** to measure risk adjusted returns.
 
-[ todo_2 ]
+> An idea here to [DISCUSS], how can we use traders' rolling window returns to build a synthetic tracker? E.g. how can we track the top500 traders at the same time without copying all of them? Can we build a virtual portfolio and rebalance
+
+![Modern Portfolio Theory](https://cdn.prod.website-files.com/6318ee7f8cd2577347722ef7/67360afeaef346c7d24073cf_6736092b176246857f50e78b_image%2520(3).png)
 
 ### 2.5 ML based labelling
 
-[ todo_3 ]
+As commented above, we can see labelling also as creating quantiles for quantitative features, which is in fact a common normalization + training speed optimisationtechnique in Machine Learning (for instance in histogram accelerated boosted trees) (amongst others).
+
+By using continuous or quantized features we can run supervised algorithms (if we do have training labels) or unsupervised algorithms (always taking into account features' scales & normalization) to find clusters or labels for traders and market partipants.
+
+[ WE CAN DISCUSS FURTHER, interesting topic ]
 
 
 ----------
@@ -120,12 +123,20 @@ Discuss synthetic tracker
 For a starter example of what a simple pipeline embedded in a data platform means, we will first describe the typical systems that embody a minimal data platform. In order to ensure simplicity, scalability, robustness, reliability and proper SLI / SLO / SLA tracking, we will usually want to have the following components:
 
 - We will use a managed cluster paradigm like [Kubernetes](https://kubernetes.io/) as our distributed processing entity. This also allows us to easily control **IaC** (with systems like [Terraform](https://developer.hashicorp.com/terraform)) and manage deployments through centralized deployment systems like [Helm](https://helm.sh/). Of course these are not required but moreso convenient to handle pod resources, memory, fault tolerance and scalability. It also will allow us in the future to have centralized monitoring quite easily and be cloud agnostic. We will of course also need an artifact registry to store our artifacts (charts, containers, etc).
+
 - We may have different services, usually polling services (like services pulling API data, scrapers, data connectors), long running services like stream listeners, internal service listeners, RPC node services, etc. These services will all live in our centralized processing entity, but their invocation may be triggered in different manners (read next). A central **orchestration** service (or services for multi service systems like [Airflow](https://airflow.apache.org/) or [Prefect](https://www.prefect.io/)) will invoque polling services, trigger backfills, and may also be in charge of other random distributed transformation jobs and/or data quality testing. Long running services may shortcircuit our orchestrator directly, but we ideally still want to have some kind of sync backup jobs to cover backfill for these services (a classic example in web3 is a live running gRPC node streaming block events but then we may have an arhive node or an additional data source to handle backfills).
-- Our system should have a **cold storage** system in addition to the cluster's shared memory and disk (like [S3](https://aws.amazon.com/s3/), [GCS](https://cloud.google.com/storage), etc). Following the modern **ELT** paradigm, we may want all of our services to write to cold storage the data "as raw as possible", we may use a modern [Parquet](https://parquet.apache.org/) schema catalog (like [Apache Iceberg](https://iceberg.apache.org/)) and manage schemas and data snapshots through that.
+
+- Our system should have a **cold storage** distributed system in addition to the cluster's shared memory and disk (like [S3](https://aws.amazon.com/s3/), [GCS](https://cloud.google.com/storage), etc). Following the modern **ELT** paradigm, we may want all of our services to write to cold storage the data "as raw as possible", we may use a modern [Parquet](https://parquet.apache.org/) schema catalog (like [Apache Iceberg](https://iceberg.apache.org/)) and manage schemas and data snapshots through that.
+
 - On top of that, we will have our query engine, transformation services (like a **semantic layer** / [dbt](https://docs.getdbt.com/), [Spark](https://spark.apache.org/) transformations, etc), data quality assessment services (dbt / [Great Expectations](https://greatexpectations.io/) can be used here too) and an operational / analytics database system. Transformations, backfills, data quality jobs or others can be orchestrated from our centralized orchestration system.
-- Some modern systems ([BigQuery](https://cloud.google.com/bigquery), [Snowflake](https://www.snowflake.com/), [ClickHouse](https://clickhouse.com/)) may closely couple database and query engines, or we may want to use something like [Trino](https://trino.io/)/[Databricks](https://www.databricks.com/) where data layout lives in our storage system in the form of Iceberg / [Delta Lake](https://delta.io/) Catalogs, and our distributed engine runs on top in our cluster. The decision of choice depends on our resources, simplicity requirements, API layer, etc (read next bullet).
-- For our API interface layer on top of our data warehouse, we will have our API service/s running on our same cluster, maybe a cache ([Redis](https://redis.io/)) system to improve scalability (cheap) and these will we tightly coupled with our data warehouse and data engine, and should be able to properly track and migrate from/to different schemas and versions. As for the choice of data engine, it also has an influence on the API layer. If we have something like ClickHouse, we may run our API backend queries directly using the same data engine, as it may support advanced indexing (like multi-indices or sorted indices, or in the case of ClickHouse which sorts physically by `ORDER BY` and has sparse indices), whereas systems like BigQuery which are not intended for live serving will critically require an abstraction layer on top for efficient querying, possibly a cache etc. may increase complexity, need for CDC, and failure points.
-- Lastly, we should add internal monitoring, loggin, **SLI/SLO/SLA**, etc. We can have a centralized monitoring service (like [Grafana](https://grafana.com/) or [Prometheus](https://prometheus.io/)) running in the same distributed system, which simplifies things a lot. That said, all services should standardize logging schemas (e.g. JSONL) to simplify the integration with our monitoring and alerting systems.
+
+- Some modern db systems ([BigQuery](https://cloud.google.com/bigquery), [Snowflake](https://www.snowflake.com/), [Spark](https://spark.apache.org/) may closely couple database and query engines, or we may want to use something like [Trino](https://trino.io/)/[Databricks](https://www.databricks.com/) where data layout lives in our storage system in the form of Iceberg / [Delta Lake](https://delta.io/) Catalogs, and our distributed engine runs on top in our cluster. The decision of choice depends on our resources, simplicity requirements, API layer, etc (read next bullet).
+
+- A critical point here is the coupling, data contracts and reverse ETL between our data warehouse datamarts and medallion layers and our serving layer. Serving layer needs an efficient OLAP database (like ClickHouse or StarRocks), and we need to design a solid coupling between these components. There are different patterns here, not a single answer, all of them with pros and cons, like API layer's db ***polling*** from warehouse, or warehouse being authoritative source of truth and using orchestrator in a ***push*** pattern at the end of transformation jobs to update our serving's layer db (quite standard modern practice). 
+
+- For our API interface layer, in addition to the db service/s mentioned above (ClickHouse, etc), we may have a cache ([Redis](https://redis.io/)) system to improve scalability (cheap, but systems like CH atually have built in cache); both will we tightly coupled with our data warehouse's datamart, and should be able to properly track and migrate from/to different schemas and versions. Something like ClickHouse may drive our API backend queries directly as it may support advanced indexing (sorts physically by `ORDER BY` and has sparse indices). There's also a tight coupling here between BE and DE, and separation of concerns is an important topic.
+
+- Lastly, we should add internal monitoring, logging, **SLI/SLO/SLA**, etc. We can have a centralized monitoring service (like [Grafana w/ Loki](https://grafana.com/) &/or [Prometheus](https://prometheus.io/)) running in the same distributed system, which simplifies things a lot. That said, all services should standardize logging schemas (e.g. JSONL) to simplify the integration with our monitoring and alerting systems.
 
 ![platform-architecture](diagrams/platform-architecture.svg)
 
@@ -143,7 +154,7 @@ For our sample pipeline we will design a simple batch partition based incrementa
 
 ***As noted, all these can be rolling features, and `timestamp`ed at the selected grain (block, min, hour, etc). In our datamart (gold) level of the data model, we would compute these and leave up for discussion what encompasses a smart trader.***
 
-> ***Big NOTE: this kind of labelling is much more powerful in Limit Order book systems, which gives us more information about trader behavior than an AMM pool based protocol. The reason being is that CLOB based exchanges have extremely low fees, marginal positions both for long and short (shorting in Uniswap is much more complex) and this provides an extremely larger universe of relevant traders. More statistical significance -> more discoverable alpha. There are also more hidden features we can explore in an L4 book [TO BE DISCUSSED :D]. ***
+> Big NOTE: this kind of labelling is much more powerful in Limit Order book systems, which gives us more information about trader behavior than an AMM pool based protocol. The reason being is that CLOB based exchanges have extremely low fees, marginal positions both for long and short (shorting in Uniswap is much more complex) and this provides an extremely larger universe of relevant traders. More statistical significance -> more discoverable alpha. There are also more hidden features we can explore in an L4 book [TO BE DISCUSSED :D].
 
 ***WHY this could be useful for users:*** users may want to use these to build synthetic portfolios. An additional backend service (if `on_request` or dynamic requirement) or periodic jobs (if pre-computed) could be in charge of building synthetic (also called virtual) portfolios, so that a user could build his own `$NANSEN500` index, a synthetic instrument that dynamically sums a weighted position of traders and rebalances accordingly. Users could also tune their appetite for market neutrality, long/shortness, etc. A rebalancing engine can make sure these users follow the synthetic portfolio by using a `rebalancing-agent`.
 
@@ -152,12 +163,32 @@ For our sample pipeline we will design a simple batch partition based incrementa
 For a minimal design of this pipeline we would need the following architecture and services:
 
 - Our distributed engine / cluster. It will hold our ingestion services. We probably don't want to rely on GCP/Snowflake or other blockchain data wholesalers for such a critical source. We probably want our bare metal node or [QuickNode](https://www.quicknode.com/) provider, running standalone, and a polling / listener service pulling data and storing it in parquet files / [Iceberg](https://iceberg.apache.org/) catalog in our flat storage distributed system ([GCS](https://cloud.google.com/storage), [S3](https://aws.amazon.com/s3/), etc).
+
 - We also need backup services for backfilling and disaster recovery (fast archive node, a historical API provider or a requester-pays provider for historical data).
+
 - We favor an **ELT** approach where, if possible, we store data as raw as possible. Our boundary with data modeling can be an additional source of source freshness and quality (for instance `dbt source` tests), but these these named services should incorporate their own logging sinks. For this pipeline, we will pull raw EVM tables (transactions, blocks, transfers, logs, traces, etc) either streaming or polling from the node to our parquet based system.
-- Our orchestrator ([Airflow](https://airflow.apache.org/), [Prefect](https://www.prefect.io/)) lives in the same cluster, where it handles our semantic transformation/s ([`dbt`](https://docs.getdbt.com/)), backfills & migrations and other tasks. For this pipeline, we wanna rely heavily on `dbt`'s **incremental** capabilities and **partitioned** tables to incrementally update tables, a simple **partition overwrite** works (sometimes we may want a `merge` strategy instead) and is minimal; it allows us to easily run full backfills to the whole semantic graph through **full refreshes** or using jinja variables for custom batch sizes or time periods.
-- We also need to decide the query engine and database engine. Something like [ClickHouse](https://clickhouse.com/) or [BigQuery](https://cloud.google.com/bigquery) couples both which is convenient.
-- Depending on the latter, for our API layer, we may need custom service/s for API interfacing and promoting the data. We probably want to avoid **CDC** or similar as it greatly increases the complexity. Engines like ClickHouse or [Trino](https://trino.io/) can be used for serving too.
-- Finally, we need pipeline monitoring, we can have a centralized monitoring system which we can use to monitor everything, from ingestion services, transformation jobs, data quality jobs, etc. and provide built in alerting.
+
+- Our orchestrator ([Airflow](https://airflow.apache.org/), [Prefect](https://www.prefect.io/)) lives in the same cluster, where it handles our semantic transformation/s ([`dbt`](https://docs.getdbt.com/)), backfills & migrations and other tasks. For this pipeline, we wanna rely heavily on `dbt`'s **incremental** capabilities and **partitioned** tables to incrementally update tables, a simple **partition overwrite** works (sometimes we may want a `merge` strategy instead) and is minimal; it allows us to easily run full backfills to the whole semantic graph through **full refreshes** or using jinja variables for custom batch sizes or time periods. 
+
+> We also need to ensure idempotency (critical) given a certain ***version*** of the pipeline. This is an often discussed topic, but the pipeline should avoid antipatterns like updating a table incrementally using `TODAY()`. Runtime timestamps should be used at query execution to compute update ranges, but a full refresh of a dbt model for a time grained data model should also be idempotent.
+
+> We also need to decide the query engine and data storage system for our Data Warehouse. [BigQuery](https://cloud.google.com/bigquery) couples both which is convenient, but it can introduce vendor lock and adaptability issues, whereas engines like Trino require more config but the query engine is decoupled from distributed data storage (adaptability tradeoff). There are more options here like Databricks, Snowflake, and more, no correct answer but a matter of requirements. If chosing something like Trino then our warehouse will have the execution component/s workers and then the underlying storage system, which is the same we use for raw layer and backups.
+
+- Data flows though our transformation, computing the necessary incremental tables layer by layer, and reaching the ***datamart / gold layer***. Our semantic layer can also be in charge of versioning the datamart's schemas and be authoritative in the looks of a data product and drive the data contracts. 
+
+- For our serving layer block we will have some API services with their corresponding db. We want to reverse ETL from our data warehouse to our serving db, here is a critical block with some standard ways to do this with some best practices.
+
+----
+  - **Mental model: the orchestrator owns the change process, the warehouse owns the state, and the serving db owns nothing permanently** — it is a re-derivable projection that we *deploy like software* (schema versions, backfills and swaps are idempotent orchestrated jobs, never hand-run ALTERs).
+  - *Transfer pattern:* **batch push** from gold with a **watermark** (max synced partition timestamp), batched to the engine's bulk-insert sweet spot; **CDC** only if true low latency is a requirement — at datamart grain the freshness SLA *is* the watermark, monitored as an SLI (`now − last synced partition`). Pulling (Serving engine reading the lake directly) removes the sync layer but couples query cost/latency to the warehouse: deliberate trade-off, not a default.
+  - *Schema sync:* declarative and **additive-first** — the semantic layer's manifest is the *desired state*, the serving db metadata is *actual*; a reconciler diffs and applies only compatible changes (add nullable, widen type) and **fails on destructive ones** so they route to a versioned migration. Physical layout (partitions → `PARTITION BY`, filter dimensions → sort keys / sparse indices) is part of the contract, not tribal knowledge.
+  - *Migrations with zero-downtime:* version-aligned tables (**blue-green**) — fill `..._v2` from gold partitions (idempotent, resumable, never widening the floor), run a **parity job** (row counts, aggregate checksums, sampled key joins), close the **cutover window** with a final bounded delta pass, then an **atomic swap** (`EXCHANGE TABLES`), keeping `_v1` for N days as instant rollback. In-place additive changes are fine for small evolutions; **breaking changes always cycle up** (new version, backfill, swap, deprecate) and are never mutated in place.
+  - *API coupling:* bind the API to **versioned views** with explicit columns and routes (`/v2/`), dual-running through a deprecation window; contract tests (compiled API expectations vs served schema + fixture parity) gate every sync in CI, and the table swap + API route flip travel in the same release train.
+----
+
+- Finally, we need ***pipeline monitoring***, we can have a centralized monitoring system which we can use to monitor everything, from ingestion services, transformation jobs, data quality jobs, etc. and provide built in alerting.
+
+![pipeline-system](diagrams/pipeline-system.svg)
 
 ***Transformation implementation:***
 
@@ -187,6 +218,10 @@ The transformation block of the pipeline is implemented in [`dbt`](https://docs.
 > - Explore and debug tables, create sample charts (`pnl_1m`)
 > - Proper data quality a& freshness tests + debugging
 > - Add efficient and customizeable backfill tasks to prefect and utilize `full_refresh` dilligently or batched queries.
+
+
+---
+
 
 ### 3.1.1 Appendix: pricing, mark-to-market and scope assumptions
 

@@ -1,0 +1,40 @@
+flowchart TB
+    subgraph NODES["Blockchain nodes"]
+        MAIN["Main node / provider<br/>(QuickNode, bare metal)"]
+        ARCH["Archive node / historical API<br/>(backfill &amp; DR)"]
+    end
+
+    subgraph CLUSTER["Cluster"]
+        ING["Polling / listener service<br/>(raw EVM tables as raw as possible)"]
+        ORCH["Orchestrator: Prefect / Airflow<br/>schedules dbt incremental runs,<br/>backfills &amp; migrations, switchover jobs"]
+        DBT["Semantic layer: dbt<br/>bronze -&gt; silver -&gt; gold (datamart)<br/>incremental + partitioned tables<br/>(partition overwrite / merge)"]
+        REV["Reverse ETL to serving db<br/>watermark batch push, additive schema sync,<br/>blue-green fill -&gt; parity -&gt; atomic swap"]
+        API["API services + cache<br/>(versioned views /v2)"]
+        PORT["Synthetic portfolios / rebalancing agent<br/>($NANSEN500-style)"]
+    end
+
+    subgraph LAKE["Cold storage: GCS / S3"]
+        RAW[("Raw: Parquet / Iceberg<br/>transactions · logs · traces · transfers")]
+    end
+
+    subgraph WAREHOUSE["Warehouse: query engine + storage (BigQuery couples, Trino decouples)"]
+        GOLD[("Datamart / gold<br/>rolling, timestamped labels")]
+    end
+
+    CHDB[("Serving db: ClickHouse<br/>_v1 / _v2 tables")]
+
+    MON["Monitoring (ingestion, DQ, jobs, alerting)"]
+
+    MAIN --> ING
+    ARCH -.->|backfill / reprocessing| RAW
+    ING --> RAW
+    RAW --> DBT
+    DBT --> GOLD
+    GOLD --> REV --> CHDB
+    CHDB --> API --> PORT
+    ORCH -.-> DBT
+    ORCH -.-> REV
+    ORCH -.-> ARCH
+    MON -.->|collects| ING
+    MON -.-> DBT
+    MON -.-> API
